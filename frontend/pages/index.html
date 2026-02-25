@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Landing Page Generator</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+  <link rel="stylesheet" href="../assets/css/website-generator.css" />
+
+  <link rel="stylesheet" href="../assets/css/tab-reorganization.css" />
+  <link rel="stylesheet" href="../assets/css/chat-interface.css" />
+  <link rel="stylesheet" href="../assets/css/data-selector.css" />
+  <link rel="stylesheet" href="../assets/css/website-updater.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <script src="https://unpkg.com/@grapesjs/studio-sdk@latest/dist/index.umd.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/@grapesjs/studio-sdk@latest/dist/style.css" />
+  <!-- Nunjucks for client-side Jinja template rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/nunjucks@3.2.4/browser/nunjucks.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+
+<body>
+  <!-- Top Navigation Bar -->
+  <header class="top-bar">
+    <div class="top-bar-left">
+      <button id="leftSidebarToggle" class="sidebar-toggle-btn" title="Toggle Left Sidebar">
+        <i class="fas fa-bars"></i>
+      </button>
+      <h1 class="app-title">AI Landing Page Generator</h1>
+    </div>
+    <div class="top-bar-right">
+      <button id="fullscreenBtn" class="top-bar-btn" title="Fullscreen">
+        <i class="fas fa-expand"></i>
+      </button>
+      <button id="publishBtn" class="top-bar-btn publish-btn" title="Publish">
+        <i class="fas fa-rocket"></i>
+        <span>Show In Browser</span>
+      </button>
+      <button id="themeToggle" class="top-bar-btn" title="Toggle Theme">
+        <i class="fas fa-moon theme-icon" id="themeIcon"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container with Three Columns -->
+  <div class="builder-container">
+    <!-- Left Sidebar -->
+    <aside id="leftSidebar" class="sidebar left-sidebar">
+      <!-- Main Tabs -->
+      <div class="sidebar-tabs main-tabs">
+        <button class="sidebar-tab active" data-maintab="website">Website</button>
+
+      </div>
+
+      <!-- Sub Tabs for Website -->
+      <div class="sidebar-subtabs" id="websiteSubtabs" style="display: none;">
+        <button class="sidebar-subtab active" data-tab="websitegenerate">Website</button>
+        <button class="sidebar-subtab" data-tab="websiteupdate" id="updateWebsiteSubtab" style="display:none;">✏️
+          Update</button>
+
+      </div>
+
+
+      <!-- Template Main Tab Content - Displayed directly when Template main tab is clicked -->
+
+
+      <div class="sidebar-content">
+        <!-- Website Sub-tab: Generate -->
+        <div id="websitegenerateTab" class="tab-content">
+          <div>
+            <div class="panel-section">
+              <div class="section-header">
+                <span class="step-number">🌐</span>
+                <h3>Describe Your Website</h3>
+              </div>
+              <div class="input-section">
+                <p style="margin-bottom: 12px; color: var(--text-secondary); font-size: 14px;">
+                  Create a complete multi-page website with Home, About, Services, and Contact pages.
+                </p>
+                <textarea id="websiteDescription"
+                  placeholder="Example: A technology consulting company providing cloud migration, AI solutions, and cybersecurity services. We help businesses transform digitally with cutting-edge technology..."
+                  rows="5"></textarea>
+                <div class="char-count">
+                  <span id="websiteCharCount">0</span> characters
+                </div>
+
+
+              </div>
+            </div>
+
+            <!-- Business Gathering Chat Section (hidden by default) -->
+            <div class="panel-section" id="websiteClarificationSection" style="display: none;">
+              <div class="chat-container website-chat">
+                <div>
+                  <div class="chat-header">
+                    <h3>💬 Business Information</h3>
+                    <button id="clearBusinessChatBtn" class="btn-icon-small" title="Start Over">
+                      <i class="fas fa-redo"></i>
+                    </button>
+                  </div>
+
+                  <div class="chat-messages" id="websiteBusinessChatMessages">
+                    <!-- Chat messages will be inserted here -->
+                  </div>
+                </div>
+                <div>
+                  <div class="chat-input-container">
+                    <div class="chat-input-wrapper">
+                      <textarea id="websiteQuestionAnswer" placeholder="Type your answer here..." rows="3"></textarea>
+                      <button id="submitAnswerBtn" class="chat-send-btn" title="Send">
+                        <i class="fas fa-paper-plane"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Plan Approval Section (hidden by default) -->
+            <div class="panel-section" id="planApprovalSection" style="display: none;">
+              <div class="section-header">
+                <span class="step-number">📋</span>
+                <h3>Review Website Plan</h3>
+              </div>
+
+              <div class="plan-preview-container" id="planPreviewContent"
+                style="background: var(--bg-tertiary); padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; max-height: 300px; overflow-y: auto;">
+                <!-- Plan details will be injected here -->
+              </div>
+
+              <div class="approval-actions">
+                <div class="approval-buttons" style="display: flex; gap: 10px; margin-bottom: 15px;">
+                  <button id="approvePlanBtn" class="btn-primary"
+                    style="background-color: #10B981; border-color: #10B981;">
+                    <i class="fas fa-check"></i> Approve Plan
+                  </button>
+                  <button id="requestRevisionBtn" class="btn-secondary"
+                    style="border-color: var(--text-secondary); color: var(--text-secondary);">
+                    <i class="fas fa-edit"></i> Request Changes
+                  </button>
+                </div>
+
+                <div id="revisionInputContainer"
+                  style="display: none; background: var(--bg-secondary); padding: 15px; border-radius: 8px;">
+                  <textarea id="revisionFeedback"
+                    placeholder="Describe the changes you want (e.g., 'Change primary color to blue', 'Add a blog page')..."
+                    rows="3"
+                    style="width: 100%; margin-bottom: 10px; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 8px; border-radius: 4px;"></textarea>
+                  <div style="display: flex; gap: 10px;">
+                    <button id="submitRevisionBtn" class="btn-primary">Submit Revision</button>
+                    <button id="cancelRevisionBtn" class="btn-text"
+                      style="background: transparent; border: none; color: var(--text-secondary); cursor: pointer;">Cancel</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Website Generation Progress -->
+            <div class="panel-section" id="websiteStageTracker" style="display: none">
+              <div class="generation-header">
+                <p>Website Generation Progress</p>
+              </div>
+
+
+              <!-- Typing Indicator (for planning/chat phases) -->
+              <div id="websiteTypingIndicator" style="display: none; margin-bottom: 20px;">
+                <div class="typing-indicator">
+                  <span class="typing-text">AI is thinking</span>
+                  <div class="typing-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Animated Progress Bar (for generation phases) -->
+              <div class="progress-container" id="websiteProgressContainer" style="margin-bottom: 20px;">
+                <div class="progress-bar">
+                  <div class="progress-fill" id="websiteProgressBar" style="width: 0%"></div>
+                </div>
+                <div class="progress-text" id="websiteProgressText">0%</div>
+              </div>
+
+              <!-- Status Message -->
+              <div id="websiteStatusMessage"
+                style="text-align: center; color: var(--text-secondary); font-size: 14px; margin-top: 12px;">
+                Initializing...
+              </div>
+            </div>
+          </div>
+          <!-- Quick Shortcut Button -->
+          <div style="margin-top: 12px;">
+            <button id="readyToGenerateBtn" class="btn-secondary"
+              style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px;">
+              <i class="fas fa-bolt"></i>
+              <span>Ready to Generate</span>
+            </button>
+            <p style="margin-top: 6px; font-size: 12px; color: var(--text-secondary); text-align: center;">
+              💡 Click to start generation immediately without additional questions
+            </p>
+          </div>
+
+          <!-- Data Selector Section (shown after website generation) -->
+          <div class="panel-section" id="dataSelectorSection" style="display: none;">
+            <div class="section-header">
+              <span class="step-number">📊</span>
+              <h3>Select Data Source</h3>
+            </div>
+            <div class="input-section">
+              <p style="margin-bottom: 12px; color: var(--text-secondary); font-size: 14px;">
+                Choose a data profile to populate your website template with different information.
+              </p>
+              <select id="jsonDataDropdown" class="data-selector-dropdown">
+                <option value="">-- Select Data File --</option>
+                <option value="customer1.json">Tech Professional - Sarah Johnson</option>
+                <option value="customer2.json">Cloud Kitchen - Raj Patel</option>
+                <option value="customer3.json">Creative Designer - Maria Garcia</option>
+              </select>
+              <button id="applyDataBtn" class="btn-secondary" style="width: 100%; margin-top: 12px;">
+                <i class="fas fa-sync-alt"></i>
+                <span>Apply Data</span>
+              </button>
+              <div id="currentDataInfo"
+                style="margin-top: 12px; padding: 10px; background: var(--bg-secondary); border-radius: 6px; font-size: 13px;">
+                <strong>Current Data:</strong> <span id="currentDataName">Default</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="action-buttons-section">
+            <button id="generateWebsiteBtn" class="btn-primary">
+              <i class="fas fa-globe btn-icon"></i>
+              <span>Make a Plan</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Website Sub-tab: Template -->
+
+      </div><!-- end sidebar-content -->
+
+      <!-- Update Website Chat Panel (lives OUTSIDE sidebar-content for full height) -->
+      <div id="websiteupdatePanel"
+        style="display:none; flex: 1; flex-direction: column; min-height: 0; overflow: hidden;">
+
+
+        <div class="update-chat-panel">
+
+          <!-- Header -->
+          <div class="update-chat-header">
+            <h3>✏️ Update Website <span class="update-badge">AI</span></h3>
+          </div>
+
+          <!-- Messages -->
+          <div id="updateChatMessages"></div>
+
+          <!-- Input -->
+          <div class="update-input-area">
+            <div class="update-input-row">
+              <textarea id="updateChatInput" placeholder="Ask me to update your website…" rows="1"></textarea>
+              <button id="updateSendBtn" title="Send update request">
+                <i class="fas fa-paper-plane"></i>
+              </button>
+            </div>
+            <div class="update-input-hint">Press Enter to send • Changes auto-save to disk</div>
+          </div>
+
+        </div>
+      </div><!-- end websiteupdatePanel -->
+    </aside>
+
+    <!-- Center Canvas -->
+    <main class="canvas-area">
+      <div class="canvas-container">
+        <div id="previewPlaceholder" class="preview-placeholder">
+          <div class="placeholder-content">
+            <div class="placeholder-icon">
+              <i class="fas fa-palette"></i>
+            </div>
+            <h3>Your Preview Will Appear Here</h3>
+            <p>Follow these simple steps:</p>
+            <ol class="steps-list">
+              <li>Enter a description of your website</li>
+              <li>Click "Make a Plan" to start generation</li>
+              <li>Watch the magic happen! <i class="fas fa-sparkles"></i></li>
+            </ol>
+          </div>
+        </div>
+        <iframe id="previewFrame" class="preview-frame" style="display: none" frameborder="0"
+          title="Live Preview"></iframe>
+        <div id="grapesjs-editor" style="display: none; width: 100%; height: 100%"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Template Preview Modal -->
+
+
+  <script type="module" src="../assets/js/script.js"></script>
+</body>
