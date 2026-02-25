@@ -85,11 +85,12 @@ async def business_gathering_node(state: WorkflowState) -> WorkflowState:
                 
                 try:
                     # Run scraping and analysis asynchronously
+                    # Capped at 2 pages & 15s timeout to avoid blocking the workflow
                     logger.info(f"🌐 Scraping reference site: {detected_url}")
                     reference_data = await scrape_and_analyze_reference(
                         url=detected_url,
-                        max_pages=5,
-                        timeout=60.0
+                        max_pages=2,
+                        timeout=15.0
                     )
                     
                     if reference_data.get('status') == 'completed':

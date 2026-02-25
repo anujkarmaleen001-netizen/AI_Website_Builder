@@ -837,6 +837,193 @@ async def update_website(request: UpdateWebsiteRequest):
 
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Export API  —  POST /api/export/{folder_name}
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.get("/api/export/config")
+async def get_export_config():
+    """
+    Returns the current export configuration (OUTPUT_PATH from .env).
+    Useful for the frontend to show the user where exports will go.
+    """
+    output_path = os.getenv("OUTPUT_PATH", "").strip()
+    return {
+        "output_path": output_path if output_path else None,
+        "configured": bool(output_path),
+        "message": (
+            f"Export path configured: {output_path}"
+            if output_path
+            else "OUTPUT_PATH is not set in .env — export is disabled"
+        )
+    }
+
+
+@app.post("/api/export/{folder_name}")
+async def export_website(folder_name: str):
+    """
+    Export a generated website folder to the custom OUTPUT_PATH defined in .env.
+
+    This endpoint does NOT run automatically — it must be explicitly called by
+    the user/frontend after website generation is complete.
+
+    Steps:
+        1. Reads OUTPUT_PATH from .env
+        2. Validates source folder exists in webtemplates/
+        3. Copies (not moves) the entire folder to OUTPUT_PATH
+        4. Returns source path, destination path, and list of exported files
+
+    Args:
+        folder_name: Name of the generated website folder (e.g. 'mysite_20260225_123456')
+
+    Returns:
+        JSON with success status, source_path, destination_path, exported_files
+    """
+    import shutil
+
+    logger.info("=" * 60)
+    logger.info(f"EXPORT WEBSITE - Request received for folder: {folder_name}")
+    logger.info("=" * 60)
+
+    # ── 1. Read OUTPUT_PATH from .env ─────────────────────────────────────────
+    output_path = os.getenv("OUTPUT_PATH", "").strip()
+
+    if not output_path:
+        logger.warning("Export failed: OUTPUT_PATH is not configured in .env")
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "OUTPUT_PATH is not configured in your .env file. "
+                "Please set OUTPUT_PATH to the folder where you want to export websites. "
+                "Example: OUTPUT_PATH=\"C:\\Users\\YourName\\Desktop\\MyWebsites\""
+            )
+        )
+
+    # ── 2. Sanitize folder_name (prevent directory traversal) ─────────────────
+    folder_name = os.path.basename(folder_name.strip())
+    if not folder_name:
+        raise HTTPException(status_code=400, detail="Invalid folder name.")
+
+    # ── 3. Validate source folder exists in webtemplates/ ────────────────────
+    source_path = os.path.join(WEBTEMPLATES_DIR, folder_name)
+
+    if not os.path.exists(source_path):
+        logger.warning(f"Export failed: Source folder not found: {source_path}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Website folder '{folder_name}' not found. "
+                   f"Please make sure the website was generated successfully first."
+        )
+
+    if not os.path.isdir(source_path):
+        raise HTTPException(
+            status_code=400,
+            detail=f"'{folder_name}' is not a valid website folder."
+        )
+
+    # ── 4. Ensure OUTPUT_PATH directory exists (auto-create if missing) ───────
+    try:
+        os.makedirs(output_path, exist_ok=True)
+    except Exception as e:
+        logger.error(f"Cannot create OUTPUT_PATH '{output_path}': {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Cannot create or access the export path '{output_path}'. "
+                   f"Please check the path is valid and you have write permission. Error: {str(e)}"
+        )
+
+    # ── 5. Define destination path ────────────────────────────────────────────
+    destination_path = os.path.join(output_path, folder_name)
+
+    if os.path.exists(destination_path):
+        logger.warning(f"Export path already exists: {destination_path}")
+        raise HTTPException(
+            status_code=409,
+            detail=f"A folder named '{folder_name}' already exists at '{output_path}'. "
+                   f"Please rename or remove the existing folder first."
+        )
+
+    # ── 6. Copy folder to OUTPUT_PATH ─────────────────────────────────────────
+    try:
+        logger.info(f"Copying: {source_path} → {destination_path}")
+        shutil.copytree(source_path, destination_path)
+        logger.info(f"✓ Export successful: {destination_path}")
+    except Exception as e:
+        logger.error(f"Export copy failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Export failed while copying files: {str(e)}"
+        )
+
+    # ── 7. Collect list of exported files ─────────────────────────────────────
+    exported_files = []
+    for root, dirs, files in os.walk(destination_path):
+        for file in files:
+            file_full = os.path.join(root, file)
+            # Return relative path from destination_path
+            relative = os.path.relpath(file_full, destination_path)
+            exported_files.append(relative)
+
+    exported_files.sort()
+
+    logger.info(f"Exported {len(exported_files)} files to: {destination_path}")
+    logger.info("=" * 60)
+
+    return {
+        "success": True,
+        "message": f"✓ Website exported successfully to your system!",
+        "folder_name": folder_name,
+        "source_path": source_path,
+        "destination_path": destination_path,
+        "total_files": len(exported_files),
+        "exported_files": exported_files,
+    }
+
+
+@app.get("/api/export/list")
+async def list_exportable_websites():
+    """
+    Lists all generated websites available in webtemplates/ that can be exported.
+    Also shows whether OUTPUT_PATH is configured.
+    """
+    output_path = os.getenv("OUTPUT_PATH", "").strip()
+
+    # List all folders in webtemplates/
+    websites = []
+    if os.path.exists(WEBTEMPLATES_DIR):
+        for name in sorted(os.listdir(WEBTEMPLATES_DIR)):
+            folder = os.path.join(WEBTEMPLATES_DIR, name)
+            if os.path.isdir(folder):
+                # Get metadata if available
+                metadata_path = os.path.join(folder, "metadata.json")
+                metadata = {}
+                if os.path.exists(metadata_path):
+                    try:
+                        with open(metadata_path, "r", encoding="utf-8") as f:
+                            metadata = json.load(f)
+                    except Exception:
+                        pass
+
+                # Count files
+                file_count = sum(len(files) for _, _, files in os.walk(folder))
+
+                websites.append({
+                    "folder_name": name,
+                    "created_at": metadata.get("created_at"),
+                    "description": metadata.get("description"),
+                    "pages": metadata.get("pages", []),
+                    "file_count": file_count,
+                    "output_format": metadata.get("output_format", "html"),
+                })
+
+    return {
+        "export_configured": bool(output_path),
+        "output_path": output_path if output_path else None,
+        "total_websites": len(websites),
+        "websites": websites,
+    }
+
+
 # Run the application (uvicorn imported at top)
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
