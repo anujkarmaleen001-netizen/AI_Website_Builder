@@ -7,7 +7,7 @@ Detects reference URLs and integrates web scraping for design inspiration.
 import logging
 import os
 from dotenv import load_dotenv
-from langchain.chat_models import init_chat_model
+from langchain_openai import AzureChatOpenAI
 from langchain_core.messages import AIMessage, HumanMessage
 
 from app.workflow_state import WorkflowState
@@ -25,9 +25,13 @@ load_dotenv()
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Initialize LLM for business gathering
-api_key = os.getenv("ANTHROPIC_PLANNING_KEY")
-business_gathering_llm = init_chat_model(model="anthropic/claude-opus-4-6", api_key=api_key)
+# Initialize LLM for business gathering (Azure)
+business_gathering_llm = AzureChatOpenAI(
+    azure_endpoint=os.getenv("AZURE_AI_ENDPOINT_URL"),
+    azure_deployment=os.getenv("AZURE_AI_DEPLOYMENT_NAME"),
+    api_version=os.getenv("AZURE_AI_APP_VERSION"),
+    api_key=os.getenv("AZURE_AI_TOKEN"),
+)
 
 
 async def business_gathering_node(state: WorkflowState) -> WorkflowState:
