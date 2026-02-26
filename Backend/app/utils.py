@@ -7,7 +7,7 @@ import time
 import logging
 from dotenv import load_dotenv
 from fastapi import HTTPException
-from openai import AsyncOpenAI
+from openai import AsyncAzureOpenAI
 import aiofiles
 
 load_dotenv()
@@ -15,16 +15,18 @@ load_dotenv()
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# OpenAI API Configuration
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
-DALLE_MODEL = os.getenv("DALLE_MODEL", "dall-e-3")
+# ── Azure Image Generation (DALL-E 3) Configuration ───────────────────────────
+AZURE_IMAGE_ENDPOINT   = os.getenv("AZURE_IMAGE_AI_ENDPOINT_URL", "")
+AZURE_IMAGE_DEPLOYMENT = os.getenv("AZURE_IMAGE_AI_DEPLOYMENT_NAME", "dall-e-3")
+AZURE_IMAGE_VERSION    = os.getenv("AZURE_IMAGE_AI_APP_VERSION", "2024-02-01")
+AZURE_IMAGE_TOKEN      = os.getenv("AZURE_IMAGE_AI_TOKEN", "")
 
 logger.info("=" * 60)
-logger.info("OpenAI Configuration:")
-logger.info(f"  API Key: {'***SET***' if OPENAI_API_KEY else 'NOT SET'}")
-logger.info(f"  Model: {OPENAI_MODEL}")
-logger.info(f"  DALL-E Model: {DALLE_MODEL}")
+logger.info("Azure Image Generation (DALL-E 3) Configuration:")
+logger.info(f"  Endpoint   : {AZURE_IMAGE_ENDPOINT or 'NOT SET'}")
+logger.info(f"  Deployment : {AZURE_IMAGE_DEPLOYMENT}")
+logger.info(f"  API Version: {AZURE_IMAGE_VERSION}")
+logger.info(f"  Token      : {'***SET***' if AZURE_IMAGE_TOKEN else 'NOT SET'}")
 logger.info("=" * 60)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -32,10 +34,18 @@ UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 logger.info(f"Upload directory: {UPLOAD_DIR}")
 
-# Initialize OpenAI client (used for DALL-E image generation)
-openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+# Initialize Azure OpenAI client for DALL-E 3 image generation
+openai_client = (
+    AsyncAzureOpenAI(
+        api_key=AZURE_IMAGE_TOKEN,
+        azure_endpoint=AZURE_IMAGE_ENDPOINT,
+        api_version=AZURE_IMAGE_VERSION,
+    )
+    if AZURE_IMAGE_ENDPOINT and AZURE_IMAGE_TOKEN
+    else None
+)
 if not openai_client:
-    logger.warning("OpenAI client not initialized - API key missing!")
+    logger.warning("Azure image client not initialized — check AZURE_IMAGE_AI_* vars in .env!")
 
 
 async def download_and_save_image(image_url: str, filepath: str) -> None:
@@ -174,26 +184,26 @@ async def call_dalle(section: str, prompt: str, size: str = "1024x1024", quality
         HTTPException: If generation, download, or storage fails
     """
     logger.info("-" * 60)
-    logger.info(f"DALL-E API Call - Image Generation for {section}")
-    logger.info(f"Model: {DALLE_MODEL}")
-    logger.info(f"Size: {size}")
-    logger.info(f"Quality: {quality}")
+    logger.info(f"Azure DALL-E 3 - Image Generation for {section}")
+    logger.info(f"Deployment : {AZURE_IMAGE_DEPLOYMENT}")
+    logger.info(f"Size       : {size}")
+    logger.info(f"Quality    : {quality}")
     logger.info(f"Prompt length: {len(prompt)} chars")
     logger.info(f"Prompt preview: {prompt[:150]}...")
     
-    if not OPENAI_API_KEY:
-        logger.error("OpenAI API key not configured")
-        raise HTTPException(status_code=500, detail="OpenAI API key not configured")
+    if not AZURE_IMAGE_TOKEN:
+        logger.error("Azure image token not configured")
+        raise HTTPException(status_code=500, detail="AZURE_IMAGE_AI_TOKEN not configured in .env")
     
     if not openai_client:
-        logger.error("OpenAI client not initialized")
-        raise HTTPException(status_code=500, detail="OpenAI client not initialized")
+        logger.error("Azure image client not initialized")
+        raise HTTPException(status_code=500, detail="Azure image client not initialized — check AZURE_IMAGE_AI_* vars")
     
     try:
-        # Generate image via DALL-E API
-        logger.info("Sending request to DALL-E API...")
+        # Generate image via Azure DALL-E 3
+        logger.info("Sending request to Azure DALL-E 3...")
         response = await openai_client.images.generate(
-            model=DALLE_MODEL,
+            model=AZURE_IMAGE_DEPLOYMENT,
             prompt=prompt,
             size=size,
             quality=quality,
@@ -243,9 +253,9 @@ async def call_dalle(section: str, prompt: str, size: str = "1024x1024", quality
         return local_url
     
     except openai.AuthenticationError as e:
-        logger.error(f"DALL-E Authentication Error: {str(e)}")
+        logger.error(f"Azure DALL-E Authentication Error: {str(e)}")
         logger.error(f"Error details: {e.__dict__}")
-        raise HTTPException(status_code=401, detail="Unauthorized: Invalid OpenAI API key")
+        raise HTTPException(status_code=401, detail="Unauthorized: Invalid Azure image token")
     
     except openai.RateLimitError as e:
         logger.error(f"DALL-E Rate Limit Error: {str(e)}")

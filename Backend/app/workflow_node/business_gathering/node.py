@@ -26,8 +26,8 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # Initialize LLM for business gathering
-api_key = os.getenv("OPENAI_API_KEY_PLAN")
-business_gathering_llm = init_chat_model(model="openai:gpt-4o", api_key=api_key)
+api_key = os.getenv("ANTHROPIC_PLANNING_KEY")
+business_gathering_llm = init_chat_model(model="anthropic/claude-opus-4-6", api_key=api_key)
 
 
 async def business_gathering_node(state: WorkflowState) -> WorkflowState:
