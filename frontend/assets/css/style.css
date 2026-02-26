@@ -38,6 +38,110 @@ body {
     color: white;
 }
 
+/* ── Export Button ─────────────────────────────────── */
+.export-btn {
+    background: linear-gradient(135deg, #10b981, #059669);
+    border-color: #10b981;
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.export-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #059669, #047857);
+    border-color: #059669;
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.export-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* ── Export Toast Notification ─────────────────────── */
+.export-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    min-width: 320px;
+    max-width: 480px;
+    background: var(--bg-secondary, #1e1e2e);
+    border: 1px solid var(--border-color, #3a3a4e);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    z-index: 9999;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    pointer-events: none;
+}
+
+.export-toast--visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.export-toast--success {
+    border-left: 4px solid #10b981;
+}
+
+.export-toast--error {
+    border-left: 4px solid #f59e0b;
+}
+
+.export-toast-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px 8px;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-primary, #e2e8f0);
+}
+
+.export-toast--success .export-toast-header i {
+    color: #10b981;
+}
+
+.export-toast--error .export-toast-header i {
+    color: #f59e0b;
+}
+
+.export-toast-header span {
+    flex: 1;
+}
+
+.export-toast-close {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-tertiary, #888);
+    padding: 2px 4px;
+    line-height: 1;
+    font-size: 12px;
+    border-radius: 4px;
+    transition: color 0.2s, background 0.2s;
+}
+
+.export-toast-close:hover {
+    color: var(--text-primary, #e2e8f0);
+    background: var(--bg-tertiary, #2a2a3e);
+}
+
+.export-toast-body {
+    padding: 4px 14px 14px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text-secondary, #a0aec0);
+    word-break: break-word;
+}
+
+
 .view-dropdown {
     position: relative;
 }
@@ -89,10 +193,13 @@ body {
 /* Builder Container */
 .builder-container {
     display: grid;
-    grid-template-columns: var(--sidebar-width) 1fr;
-    height: calc(100vh - var(--topbar-height));
-    margin-top: var(--topbar-height);
+    grid-template-columns: var(--sidebar-width, 380px) 1fr;
+    height: calc(100vh - var(--topbar-height, 60px));
+    /* Use padding-top instead of margin-top — more reliable after GrapesJS reflows */
+    margin-top: 0;
+    padding-top: var(--topbar-height, 60px);
     overflow: hidden;
+    box-sizing: border-box;
 }
 
 .builder-container.left-sidebar-collapsed {

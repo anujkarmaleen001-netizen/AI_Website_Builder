@@ -242,6 +242,30 @@ class APIService {
             body: JSON.stringify(payload)
         });
     }
+
+    /**
+     * Get export configuration (OUTPUT_PATH, OUTPUT_PATH_STYLE from .env)
+     * @returns {Promise<Object>} { output_path, output_path_style, configured, message }
+     */
+    async getExportConfig() {
+        return await this.request('/api/export/config', {
+            method: 'GET'
+        });
+    }
+
+    /**
+     * Export generated website to disk paths defined in .env
+     * @param {string} folderName - The generated website folder name (basename only)
+     * @returns {Promise<Object>} Export result with source/destination paths and file lists
+     */
+    async exportWebsite(folderName) {
+        if (!folderName || !folderName.trim()) {
+            throw new Error('Folder name is required for export');
+        }
+        return await this.request(`/api/export/${encodeURIComponent(folderName.trim())}`, {
+            method: 'POST'
+        });
+    }
 }
 
 // Export singleton instance

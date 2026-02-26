@@ -844,17 +844,18 @@ async def update_website(request: UpdateWebsiteRequest):
 @app.get("/api/export/config")
 async def get_export_config():
     """
-    Returns the current export configuration (OUTPUT_PATH from .env).
+    Returns the current export configuration (OUTPUT_PATH + OUTPUT_PATH_STYLE from .env).
     Useful for the frontend to show the user where exports will go.
     """
-    output_path = os.getenv("OUTPUT_PATH", "").strip()
+    output_path       = os.getenv("OUTPUT_PATH",       "").strip()
+    output_path_style = os.getenv("OUTPUT_PATH_STYLE", "").strip()
     return {
-        "output_path": output_path if output_path else None,
+        "output_path":       output_path       if output_path       else None,
+        "output_path_style": output_path_style if output_path_style else None,
         "configured": bool(output_path),
         "message": (
-            f"Export path configured: {output_path}"
-            if output_path
-            else "OUTPUT_PATH is not set in .env — export is disabled"
+            f"Export paths configured — site: {output_path or '(not set)'}, "
+            f"theme: {output_path_style or '(not set)'}"
         )
     }
 
@@ -862,22 +863,22 @@ async def get_export_config():
 @app.post("/api/export/{folder_name}")
 async def export_website(folder_name: str):
     """
-    Export a generated website folder to the custom OUTPUT_PATH defined in .env.
+    Export a generated website to the custom paths defined in .env.
+
+    Copies TWO folders:
+      • Content folder  → OUTPUT_PATH/<folder_name>
+      • Theme folder    → OUTPUT_PATH_STYLE/<folder_name>theme
+        (the theme folder lives in webtemplates/ as <folder_name>theme)
 
     This endpoint does NOT run automatically — it must be explicitly called by
     the user/frontend after website generation is complete.
 
-    Steps:
-        1. Reads OUTPUT_PATH from .env
-        2. Validates source folder exists in webtemplates/
-        3. Copies (not moves) the entire folder to OUTPUT_PATH
-        4. Returns source path, destination path, and list of exported files
-
     Args:
-        folder_name: Name of the generated website folder (e.g. 'mysite_20260225_123456')
+        folder_name: Name of the generated website content folder
+                     (e.g. 'mysite_20260225_123456')
 
     Returns:
-        JSON with success status, source_path, destination_path, exported_files
+        JSON with success status, source/destination paths, and exported file lists
     """
     import shutil
 
@@ -885,8 +886,9 @@ async def export_website(folder_name: str):
     logger.info(f"EXPORT WEBSITE - Request received for folder: {folder_name}")
     logger.info("=" * 60)
 
-    # ── 1. Read OUTPUT_PATH from .env ─────────────────────────────────────────
-    output_path = os.getenv("OUTPUT_PATH", "").strip()
+    # ── 1. Read paths from .env ────────────────────────────────────────────────
+    output_path       = os.getenv("OUTPUT_PATH",       "").strip()
+    output_path_style = os.getenv("OUTPUT_PATH_STYLE", "").strip()
 
     if not output_path:
         logger.warning("Export failed: OUTPUT_PATH is not configured in .env")
@@ -904,79 +906,123 @@ async def export_website(folder_name: str):
     if not folder_name:
         raise HTTPException(status_code=400, detail="Invalid folder name.")
 
-    # ── 3. Validate source folder exists in webtemplates/ ────────────────────
-    source_path = os.path.join(WEBTEMPLATES_DIR, folder_name)
+    theme_folder_name = folder_name + "theme"
 
-    if not os.path.exists(source_path):
-        logger.warning(f"Export failed: Source folder not found: {source_path}")
+    # ── 3. Validate source folders exist in webtemplates/ ────────────────────
+    source_content = os.path.join(WEBTEMPLATES_DIR, folder_name)
+    source_theme   = os.path.join(WEBTEMPLATES_DIR, theme_folder_name)
+
+    if not os.path.exists(source_content):
+        logger.warning(f"Export failed: Source content folder not found: {source_content}")
         raise HTTPException(
             status_code=404,
             detail=f"Website folder '{folder_name}' not found. "
                    f"Please make sure the website was generated successfully first."
         )
 
-    if not os.path.isdir(source_path):
+    if not os.path.isdir(source_content):
         raise HTTPException(
             status_code=400,
             detail=f"'{folder_name}' is not a valid website folder."
         )
 
-    # ── 4. Ensure OUTPUT_PATH directory exists (auto-create if missing) ───────
+    # ── 4. Ensure destination base directories exist ───────────────────────────
+    for path_label, path_val in [("OUTPUT_PATH", output_path),
+                                  ("OUTPUT_PATH_STYLE", output_path_style)]:
+        if not path_val:
+            continue
+        try:
+            os.makedirs(path_val, exist_ok=True)
+        except Exception as e:
+            logger.error(f"Cannot create {path_label} '{path_val}': {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Cannot create or access '{path_val}'. "
+                       f"Check the path is valid and you have write permission. Error: {str(e)}"
+            )
+
+    # ── 5. Define destination paths ────────────────────────────────────────────
+    dest_content = os.path.join(output_path, folder_name)
+
+    # Theme destination: use OUTPUT_PATH_STYLE if set, otherwise fall back to OUTPUT_PATH
+    theme_base   = output_path_style if output_path_style else output_path
+    dest_theme   = os.path.join(theme_base, theme_folder_name)
+
+    for dest, label in [(dest_content, "content"), (dest_theme, "theme")]:
+        if os.path.exists(dest):
+            logger.warning(f"Export path already exists ({label}): {dest}")
+            raise HTTPException(
+                status_code=409,
+                detail=f"A folder already exists at '{dest}'. "
+                       f"Please rename or remove the existing folder first."
+            )
+
+    # ── 6. Copy content folder → OUTPUT_PATH ──────────────────────────────────
     try:
-        os.makedirs(output_path, exist_ok=True)
+        logger.info(f"Copying content: {source_content} → {dest_content}")
+        shutil.copytree(source_content, dest_content)
+        logger.info(f"✓ Content export successful: {dest_content}")
     except Exception as e:
-        logger.error(f"Cannot create OUTPUT_PATH '{output_path}': {e}")
+        logger.error(f"Content export copy failed: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Cannot create or access the export path '{output_path}'. "
-                   f"Please check the path is valid and you have write permission. Error: {str(e)}"
+            detail=f"Export failed while copying content folder: {str(e)}"
         )
 
-    # ── 5. Define destination path ────────────────────────────────────────────
-    destination_path = os.path.join(output_path, folder_name)
+    # ── 7. Copy theme folder → OUTPUT_PATH_STYLE (if it exists) ───────────────
+    theme_exported_files = []
+    dest_theme_final = None
 
-    if os.path.exists(destination_path):
-        logger.warning(f"Export path already exists: {destination_path}")
-        raise HTTPException(
-            status_code=409,
-            detail=f"A folder named '{folder_name}' already exists at '{output_path}'. "
-                   f"Please rename or remove the existing folder first."
+    if os.path.exists(source_theme) and os.path.isdir(source_theme):
+        try:
+            logger.info(f"Copying theme: {source_theme} → {dest_theme}")
+            shutil.copytree(source_theme, dest_theme)
+            logger.info(f"✓ Theme export successful: {dest_theme}")
+            dest_theme_final = dest_theme
+
+            for root, dirs, files in os.walk(dest_theme):
+                for file in files:
+                    file_full = os.path.join(root, file)
+                    theme_exported_files.append(
+                        os.path.relpath(file_full, dest_theme)
+                    )
+            theme_exported_files.sort()
+        except Exception as e:
+            logger.error(f"Theme export copy failed: {e}", exc_info=True)
+            # Non-fatal — content already exported; report warning in response
+            logger.warning("Theme folder copy failed, but content was exported successfully.")
+    else:
+        logger.warning(
+            f"Theme folder '{theme_folder_name}' not found in webtemplates/ — skipping theme export."
         )
 
-    # ── 6. Copy folder to OUTPUT_PATH ─────────────────────────────────────────
-    try:
-        logger.info(f"Copying: {source_path} → {destination_path}")
-        shutil.copytree(source_path, destination_path)
-        logger.info(f"✓ Export successful: {destination_path}")
-    except Exception as e:
-        logger.error(f"Export copy failed: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Export failed while copying files: {str(e)}"
-        )
-
-    # ── 7. Collect list of exported files ─────────────────────────────────────
+    # ── 8. Collect list of exported content files ─────────────────────────────
     exported_files = []
-    for root, dirs, files in os.walk(destination_path):
+    for root, dirs, files in os.walk(dest_content):
         for file in files:
             file_full = os.path.join(root, file)
-            # Return relative path from destination_path
-            relative = os.path.relpath(file_full, destination_path)
-            exported_files.append(relative)
-
+            exported_files.append(os.path.relpath(file_full, dest_content))
     exported_files.sort()
 
-    logger.info(f"Exported {len(exported_files)} files to: {destination_path}")
+    logger.info(f"Exported {len(exported_files)} content files → {dest_content}")
+    logger.info(f"Exported {len(theme_exported_files)} theme files  → {dest_theme_final}")
     logger.info("=" * 60)
 
     return {
         "success": True,
-        "message": f"✓ Website exported successfully to your system!",
+        "message": "✓ Website exported successfully to your system!",
         "folder_name": folder_name,
-        "source_path": source_path,
-        "destination_path": destination_path,
-        "total_files": len(exported_files),
-        "exported_files": exported_files,
+        # Content folder
+        "source_path":       source_content,
+        "destination_path":  dest_content,
+        "total_files":       len(exported_files),
+        "exported_files":    exported_files,
+        # Theme folder
+        "theme_folder_name":        theme_folder_name,
+        "theme_source_path":        source_theme if os.path.exists(source_theme) else None,
+        "theme_destination_path":   dest_theme_final,
+        "theme_total_files":        len(theme_exported_files),
+        "theme_exported_files":     theme_exported_files,
     }
 
 

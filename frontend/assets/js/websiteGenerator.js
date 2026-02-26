@@ -12,6 +12,7 @@ export class WebsiteGeneratorManager {
         this.generatedImageUrls = null;
         this.generatedPlan = null;
         this.folderPath = null;
+        this.folderName = null;       // Basename of the generated folder (for export)
         this.savedFiles = null;
         this.htmlEditor = grapesJSEditor;
         this.currentPageName = 'home';
@@ -47,6 +48,9 @@ export class WebsiteGeneratorManager {
         const requestRevisionBtn = document.getElementById('requestRevisionBtn');
         const submitRevisionBtn = document.getElementById('submitRevisionBtn');
         const cancelRevisionBtn = document.getElementById('cancelRevisionBtn');
+
+        // Export button
+        const exportBtn = document.getElementById('exportBtn');
 
         if (generateBtn) {
             generateBtn.addEventListener('click', () => this.startWebsiteGeneration());
@@ -93,6 +97,10 @@ export class WebsiteGeneratorManager {
                     alert("Please describe the changes you want.");
                 }
             });
+        }
+
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => this.exportWebsite());
         }
     }
 
@@ -348,17 +356,146 @@ export class WebsiteGeneratorManager {
         this.folderPath = data.folder_path;
         this.savedFiles = data.saved_files;
 
+        // Extract folder name (basename) from folder_path for export
+        if (this.folderPath) {
+            // Works with both forward- and back-slashes
+            const parts = this.folderPath.replace(/\\/g, '/').split('/');
+            this.folderName = parts[parts.length - 1];
+            console.log('📁 Export folder name:', this.folderName);
+        }
+
         // Initialize multi-page editor
         this.displayMultiPageEditor(this.generatedPages);
 
         // Show data selector section
         this.showDataSelector();
 
+        // Show export button (always show after generation; folderName check happens on click)
+        const exportBtn = document.getElementById('exportBtn');
+        if (exportBtn) {
+            exportBtn.style.display = 'inline-flex';
+            exportBtn.removeAttribute('disabled');
+        }
+
         // Re-enable generate button
         const generateBtn = document.getElementById('generateWebsiteBtn');
         if (generateBtn) {
             generateBtn.disabled = false;
         }
+    }
+
+    /**
+     * Export the generated website to the paths configured in .env
+     * Calls POST /api/export/{folder_name}
+     */
+    async exportWebsite() {
+        if (!this.folderName) {
+            this._showExportToast('error', '⚠️ No website generated yet. Please generate a website first.');
+            return;
+        }
+
+        const exportBtn = document.getElementById('exportBtn');
+        const originalHTML = exportBtn ? exportBtn.innerHTML : '';
+
+        try {
+            // Show loading state
+            if (exportBtn) {
+                exportBtn.disabled = true;
+                exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Exporting…</span>';
+            }
+
+            console.log('📤 Exporting website folder:', this.folderName);
+
+            // First check config so we can give a better message if not set
+            let config = null;
+            try {
+                config = await apiService.getExportConfig();
+            } catch (_) { /* non-fatal, proceed and let export endpoint report error */ }
+
+            if (config && !config.configured) {
+                this._showExportToast(
+                    'error',
+                    '⚠️ OUTPUT_PATH is not set in your .env file.\n\nPlease add:\nOUTPUT_PATH=C:\\Your\\Destination\\Folder'
+                );
+                return;
+            }
+
+            const result = await apiService.exportWebsite(this.folderName);
+
+            console.log('✅ Export success:', result);
+
+            // Build success message
+            const lines = [
+                `✅ Website exported successfully!`,
+                ``,
+                `📁 Content  → ${result.destination_path}`,
+                `   (${result.total_files} file${result.total_files !== 1 ? 's' : ''})`,
+            ];
+            if (result.theme_destination_path) {
+                lines.push(`🎨 Theme    → ${result.theme_destination_path}`);
+                lines.push(`   (${result.theme_total_files} file${result.theme_total_files !== 1 ? 's' : ''})`);
+            }
+            this._showExportToast('success', lines.join('\n'));
+
+        } catch (error) {
+            console.error('❌ Export failed:', error);
+            const msg = error.message || 'Unknown error';
+            // Friendly messages for common error codes
+            if (msg.includes('already exists')) {
+                this._showExportToast('error', `⚠️ Export folder already exists at the destination.\n\nPlease rename or remove the existing folder first, then try again.`);
+            } else if (msg.includes('OUTPUT_PATH')) {
+                this._showExportToast('error', `⚠️ ${msg}`);
+            } else {
+                this._showExportToast('error', `❌ Export failed:\n${msg}`);
+            }
+        } finally {
+            // Restore button
+            if (exportBtn) {
+                exportBtn.disabled = false;
+                exportBtn.innerHTML = originalHTML;
+            }
+        }
+    }
+
+    /**
+     * Show a self-dismissing toast notification for export results.
+     * @param {'success'|'error'} type
+     * @param {string} message
+     */
+    _showExportToast(type, message) {
+        // Remove any existing export toast
+        const existing = document.getElementById('exportToast');
+        if (existing) existing.remove();
+
+        const toast = document.createElement('div');
+        toast.id = 'exportToast';
+        toast.className = `export-toast export-toast--${type}`;
+
+        // Icon
+        const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle';
+        toast.innerHTML = `
+            <div class="export-toast-header">
+                <i class="fas ${icon}"></i>
+                <span>${type === 'success' ? 'Export Complete' : 'Export Failed'}</span>
+                <button class="export-toast-close" onclick="this.parentElement.parentElement.remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="export-toast-body">${message.replace(/\n/g, '<br>')}</div>
+        `;
+
+        document.body.appendChild(toast);
+
+        // Force reflow to trigger CSS transition
+        toast.getBoundingClientRect();
+        toast.classList.add('export-toast--visible');
+
+        // Auto-dismiss after 8s for success, 12s for error
+        const duration = type === 'success' ? 8000 : 12000;
+        setTimeout(() => {
+            toast.classList.remove('export-toast--visible');
+            setTimeout(() => toast.remove(), 400);
+        }, duration);
     }
 
     showDataSelector() {
@@ -420,8 +557,20 @@ export class WebsiteGeneratorManager {
             const pageData = pages[pageName];
             if (!pageData) return;
 
-            // Extract body content
-            const bodyContent = this.extractBodyContent(pageData.html);
+            // Determine if using PHP split format or standard HTML format
+            let fullHtml = '';
+            if (pageData.html) {
+                fullHtml = pageData.html;
+            } else if (pageData.header_html !== undefined || pageData.body_html !== undefined || pageData.footer_html !== undefined) {
+                // Reconstruct full HTML from PHP parts
+                const header = pageData.header_html || '';
+                const body = pageData.body_html || '';
+                const footer = pageData.footer_html || '';
+                fullHtml = `${header}\n${body}\n${footer}`;
+            }
+
+            // Extract body content for GrapesJS canvas
+            const bodyContent = this.extractBodyContent(fullHtml);
 
             // Add to GrapesJS pages array
             grapesPages.push({
@@ -504,10 +653,24 @@ export class WebsiteGeneratorManager {
 
             // Add each page to ZIP
             for (const [pageName, pageData] of Object.entries(allPages)) {
-                const fileName = this.savedFiles?.[pageName] || `${pageName}.html`;
+                // Determine if using PHP split format or standard HTML format
+                let rawHtml = '';
+                if (pageData.html) {
+                    rawHtml = pageData.html;
+                } else if (pageData.header_html !== undefined || pageData.body_html !== undefined || pageData.footer_html !== undefined) {
+                    // Reconstruct full HTML from PHP parts
+                    const header = pageData.header_html || '';
+                    const body = pageData.body_html || '';
+                    const footer = pageData.footer_html || '';
+                    rawHtml = `${header}\n${body}\n${footer}`;
+                }
+
+                const fileName = this.savedFiles?.[pageName] ?
+                    this.savedFiles[pageName].split(/[\\/]/).pop() :
+                    `${pageName}.html`;
 
                 // Create full HTML with embedded CSS
-                const fullHTML = this.createFullHTML(pageData.html, pageData.css);
+                const fullHTML = this.createFullHTML(rawHtml || pageData.component || '', pageData.css);
                 zip.file(fileName, fullHTML);
             }
 
