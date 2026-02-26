@@ -1,10 +1,14 @@
 # Backend Setup Commands (macOS)
 
+# Window
+py -3.11 -m venv venv or python -3.11 -m venv venv
+
 # 1. Create virtual environment (if not already created)
 python3.11 -m venv venvAi
 
 # 2. Activate virtual environment
 source venvAi/bin/activate
+
 
 # 3. Upgrade pip
 python3.11 -m pip install --upgrade pip
