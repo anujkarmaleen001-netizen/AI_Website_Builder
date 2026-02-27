@@ -447,6 +447,10 @@ export class WebsiteGeneratorManager {
                 lines.push(`🎨 Theme    → ${result.theme_destination_path}`);
                 lines.push(`   (${result.theme_total_files} file${result.theme_total_files !== 1 ? 's' : ''})`);
             }
+            if (result.preview_image_destination) {
+                lines.push(``);
+                lines.push(`🖼️ Preview  → ${result.preview_image_destination}`);
+            }
             this._showExportToast('success', lines.join('\n'));
 
         } catch (error) {

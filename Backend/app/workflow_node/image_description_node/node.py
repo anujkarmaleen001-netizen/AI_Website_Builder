@@ -24,7 +24,7 @@ async def image_description_node(state: WorkflowState) -> WorkflowState:
     try:
         plan = state["plan"]
         # Only generate images for these 3 specific sections
-        image_sections = ["hero", "features", "testimonials"]
+        image_sections = ["hero", "features", "testimonials", "preview"]
         
         # Initialize generator
         generator = ImageDescriptionGenerator()
@@ -73,7 +73,8 @@ async def image_description_node(state: WorkflowState) -> WorkflowState:
         fallback_descriptions = {
             "hero": "Professional business hero banner with modern design, clean layout, and welcoming atmosphere",
             "features": "Clean feature section with minimalist icons and professional presentation",
-            "testimonials": "Professional testimonial section with friendly atmosphere and trust-building design"
+            "testimonials": "Professional testimonial section with friendly atmosphere and trust-building design",
+            "preview": "A wide, full-page website mockup thumbnail showing the complete layout of a modern professional website, birds-eye overview screenshot style, clean design, consistent branding, light background"
         }
         
         for section, result in results:

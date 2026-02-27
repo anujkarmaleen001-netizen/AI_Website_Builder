@@ -844,18 +844,22 @@ async def update_website(request: UpdateWebsiteRequest):
 @app.get("/api/export/config")
 async def get_export_config():
     """
-    Returns the current export configuration (OUTPUT_PATH + OUTPUT_PATH_STYLE from .env).
+    Returns the current export configuration (OUTPUT_PATH + OUTPUT_PATH_STYLE +
+    OUTPUT_PATH_PREVIEW_IMAGE from .env).
     Useful for the frontend to show the user where exports will go.
     """
-    output_path       = os.getenv("OUTPUT_PATH",       "").strip()
-    output_path_style = os.getenv("OUTPUT_PATH_STYLE", "").strip()
+    output_path               = os.getenv("OUTPUT_PATH",               "").strip()
+    output_path_style         = os.getenv("OUTPUT_PATH_STYLE",         "").strip()
+    output_path_preview_image = os.getenv("OUTPUT_PATH_PREVIEW_IMAGE", "").strip()
     return {
-        "output_path":       output_path       if output_path       else None,
-        "output_path_style": output_path_style if output_path_style else None,
+        "output_path":               output_path               if output_path               else None,
+        "output_path_style":         output_path_style         if output_path_style         else None,
+        "output_path_preview_image": output_path_preview_image if output_path_preview_image else None,
         "configured": bool(output_path),
         "message": (
             f"Export paths configured — site: {output_path or '(not set)'}, "
-            f"theme: {output_path_style or '(not set)'}"
+            f"theme: {output_path_style or '(not set)'}, "
+            f"preview image: {output_path_preview_image or '(not set)'}"
         )
     }
 
@@ -890,8 +894,9 @@ async def export_website(folder_name: str):
     logger.info("=" * 60)
 
     # ── 1. Read paths from .env ────────────────────────────────────────────────
-    output_path       = os.getenv("OUTPUT_PATH",       "").strip()
-    output_path_style = os.getenv("OUTPUT_PATH_STYLE", "").strip()
+    output_path               = os.getenv("OUTPUT_PATH",               "").strip()
+    output_path_style         = os.getenv("OUTPUT_PATH_STYLE",         "").strip()
+    output_path_preview_image = os.getenv("OUTPUT_PATH_PREVIEW_IMAGE", "").strip()
 
     if not output_path:
         logger.warning("Export failed: OUTPUT_PATH is not configured in .env")
@@ -1012,6 +1017,35 @@ async def export_website(folder_name: str):
 
     logger.info(f"Exported {len(exported_files)} content files → {dest_content}")
     logger.info(f"Exported {len(theme_exported_files)} theme files  → {dest_theme_final}")
+
+    # ── 9. Copy preview image → OUTPUT_PATH_PREVIEW_IMAGE ────────────────────
+    preview_image_source      = None
+    preview_image_destination = None
+
+    if output_path_preview_image and os.path.exists(source_theme) and os.path.isdir(source_theme):
+        import glob as _glob
+        images_dir = os.path.join(source_theme, "images")
+        pattern    = os.path.join(images_dir, "preview_*.png")
+        matches    = _glob.glob(pattern)
+
+        if matches:
+            src_preview  = matches[0]  # take the first match
+            dest_preview_dir  = output_path_preview_image
+            dest_preview_file = os.path.join(dest_preview_dir, f"{folder_name}.png")
+
+            try:
+                os.makedirs(dest_preview_dir, exist_ok=True)
+                shutil.copy2(src_preview, dest_preview_file)
+                preview_image_source      = src_preview
+                preview_image_destination = dest_preview_file
+                logger.info(f"✓ Preview image exported: {src_preview} → {dest_preview_file}")
+            except Exception as e:
+                logger.warning(f"Preview image export failed (non-fatal): {e}")
+        else:
+            logger.info("No preview_*.png found in theme images/ — skipping preview image export")
+    else:
+        logger.info("OUTPUT_PATH_PREVIEW_IMAGE not set or theme folder missing — skipping preview image export")
+
     logger.info("=" * 60)
 
     return {
@@ -1029,6 +1063,9 @@ async def export_website(folder_name: str):
         "theme_destination_path":   dest_theme_final,
         "theme_total_files":        len(theme_exported_files),
         "theme_exported_files":     theme_exported_files,
+        # Preview image
+        "preview_image_source":      preview_image_source,
+        "preview_image_destination": preview_image_destination,
     }
 
 

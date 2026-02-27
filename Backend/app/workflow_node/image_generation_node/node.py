@@ -25,6 +25,7 @@ SECTION_SIZES = {
     "hero":         "1792x1024",   # wide landscape for hero banners
     "features":     "1024x1024",   # square for feature cards
     "testimonials": "1024x1024",   # square for testimonial photos
+    "preview":      "1792x1024",   # wide landscape for website overview thumbnail
 }
 
 
@@ -48,6 +49,7 @@ async def image_generation_node(state: WorkflowState) -> WorkflowState:
             "hero":         "hero_1766668485.png",
             "features":     "features_1766668478.png",
             "testimonials": "testimonials_1766668479.png",
+            "preview":      "preview_placeholder.png",
         }
 
         # Build parallel tasks
