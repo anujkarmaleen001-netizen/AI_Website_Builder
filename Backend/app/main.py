@@ -864,22 +864,25 @@ async def get_export_config():
 async def export_website(folder_name: str):
     """
     Export a generated website to the custom paths defined in .env.
-
+ 
     Copies TWO folders:
       • Content folder  → OUTPUT_PATH/<folder_name>
-      • Theme folder    → OUTPUT_PATH_STYLE/<folder_name>theme
-        (the theme folder lives in webtemplates/ as <folder_name>theme)
-
+      • Theme folder    →
+            - if OUTPUT_PATH_STYLE is set: OUTPUT_PATH_STYLE/<folder_name>
+            - otherwise: OUTPUT_PATH/<folder_name>theme
+        (the source theme folder in webtemplates/ is still <folder_name>theme)
+ 
     This endpoint does NOT run automatically — it must be explicitly called by
     the user/frontend after website generation is complete.
-
+ 
     Args:
         folder_name: Name of the generated website content folder
                      (e.g. 'mysite_20260225_123456')
-
+ 
     Returns:
         JSON with success status, source/destination paths, and exported file lists
     """
+ 
     import shutil
 
     logger.info("=" * 60)
@@ -945,8 +948,11 @@ async def export_website(folder_name: str):
     dest_content = os.path.join(output_path, folder_name)
 
     # Theme destination: use OUTPUT_PATH_STYLE if set, otherwise fall back to OUTPUT_PATH
-    theme_base   = output_path_style if output_path_style else output_path
-    dest_theme   = os.path.join(theme_base, theme_folder_name)
+    theme_base = output_path_style if output_path_style else output_path
+    # When OUTPUT_PATH_STYLE is set, export theme under the same folder name as content.
+    # Otherwise, keep the 'theme' suffix to avoid clashing with the content folder.
+    dest_theme_name = folder_name if output_path_style else theme_folder_name
+    dest_theme = os.path.join(theme_base, dest_theme_name)
 
     for dest, label in [(dest_content, "content"), (dest_theme, "theme")]:
         if os.path.exists(dest):
