@@ -149,6 +149,26 @@ def planning_node(state: WorkflowState) -> WorkflowState:
             logger.warning("⚠ No design_system in plan, using legacy styling format")
             # Fallback: create basic design_system from old styling format for backward compatibility
             design_system = plan.get("styling", {})
+
+        # Extract CI4 context from plan (routes, PHP variables, merchant ID)
+        ci4_context = plan.get("ci4_context", {})
+        shop_mid = ci4_context.get("shop_mid", "1")
+        if ci4_context:
+            logger.info(f"✓ CI4 context extracted: mid={shop_mid}, routes={list(ci4_context.get('route_patterns', {}).keys())}")
+        else:
+            logger.warning("⚠ No ci4_context in plan — using defaults")
+            ci4_context = {
+                "shop_mid": "1",
+                "php_variables": ["$categories", "$subcategorieslist", "$products", "$mid"],
+                "helper_function": "getDynamicBaseUrl()",
+                "route_patterns": {
+                    "all_products": "fshop/index/{mid}",
+                    "by_category": "fshop/index/{mid}/{catid}",
+                    "by_subcategory": "fshop/index/{mid}/{catid}?sub={subcatid}",
+                    "single_product": "fshop/product/{mid}/{product_id}",
+                    "faq_page": "fshop/faq/{mid}"
+                }
+            }
         
         # Check if this is a revision (plan_feedback exists)
         is_revision = bool(state.get("plan_feedback"))
@@ -156,22 +176,24 @@ def planning_node(state: WorkflowState) -> WorkflowState:
         
         logger.info(f"Plan version: {plan_version}" + (" (revision)" if is_revision else " (initial)"))
         
-        # Update state with plan, design system, and approval workflow flags
+        # Update state with plan, design system, CI4 config, and approval workflow flags
         return {
             **state,
             "plan": plan,
-            "plan_json": json.dumps(plan),  # Store normalized JSON
-            "design_system": design_system,  # Store extracted design system
+            "plan_json": json.dumps(plan),        # Store normalized JSON
+            "design_system": design_system,        # Store extracted design system
+            "ci4_config": ci4_context,             # Store CI4 routes & PHP variable context
+            "shop_mid": shop_mid,                  # Store merchant ID for convenience
             "template_styling": template_styling,  # Store extracted template styling (legacy)
-            "css_theme": css_theme,  # Store extracted CSS theme (legacy)
-            "plan_version": plan_version,  # Track plan iterations
-            "awaiting_plan_approval": True,  # Set approval gate flag
-            "plan_approved": False,  # Reset approval status
-            "plan_revision_requested": False,  # Reset revision flag
-            "current_step": "plan_approval",  # Next step is approval, not image_description
-            "status": "awaiting_approval",  # Workflow pauses for user approval
+            "css_theme": css_theme,                # Store extracted CSS theme (legacy)
+            "plan_version": plan_version,          # Track plan iterations
+            "awaiting_plan_approval": True,        # Set approval gate flag
+            "plan_approved": False,                # Reset approval status
+            "plan_revision_requested": False,      # Reset revision flag
+            "current_step": "plan_approval",      # Next step is approval
+            "status": "awaiting_approval",         # Workflow pauses for user approval
             "progress": 20,
-            "progress_message": f"✓ Plan generated: {len(plan.get('pages', []))} pages, awaiting your approval"
+            "progress_message": f"✓ Plan generated: {len(plan.get('pages', []))} pages (home + faq), awaiting your approval"
         }
         
     except Exception as e:

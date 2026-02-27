@@ -7,7 +7,12 @@ import logging
 import dspy
 from typing import Dict, Optional
 
-from .signature import MultiPageSignature, WebsiteUpdateAnalyzerSignature, HTMLEditSignature
+from .signature import (
+    MultiPageSignature,
+    WebsiteUpdateAnalyzerSignature,
+    HTMLEditSignature,
+    CI4_CATEGORY_NAV_TEMPLATE,
+)
 from app.config import update_llm
 
 
@@ -18,47 +23,89 @@ class MultiPageGenerator(dspy.Module):
         super().__init__()
         self.predict = dspy.Predict(MultiPageSignature)
     
-    def forward(self, plan: str, page_name: str, page_config: str, image_urls: str, business_description: str, template_styling: Optional[Dict] = None):
-        generation_rules = """You are an expert frontend developer creating static PHP website templates.
+    def forward(
+        self,
+        plan: str,
+        page_name: str,
+        page_config: str,
+        image_urls: str,
+        business_description: str,
+        template_styling=None,
+        ci4_config: Optional[Dict] = None,
+    ):
+        # Build CI4 context block for the LLM prompt
+        if ci4_config:
+            shop_mid = ci4_config.get("shop_mid", "1")
+            php_vars  = ", ".join(ci4_config.get("php_variables", []))
+            routes    = json.dumps(ci4_config.get("route_patterns", {}), indent=2)
+            ci4_context_block = (
+                f"CI4 CRM INTEGRATION CONTEXT:\n"
+                f"  Merchant ID ($merchant_id): {shop_mid}\n"
+                f"  Available PHP variables from controller: {php_vars}\n"
+                f"  Helper function: getDynamicBaseUrl()\n"
+                f"  CI4 Route patterns:\n{routes}\n"
+            )
+        else:
+            shop_mid = "1"
+            ci4_context_block = (
+                "CI4 CRM INTEGRATION CONTEXT:\n"
+                "  Merchant ID ($merchant_id): 1\n"
+                "  Available PHP variables: $categories, $subcategorieslist, $products, $merchant_id\n"
+                "  Helper function: getDynamicBaseUrl()\n"
+            )
 
-GENERATION STRATEGY - PRIORITIZE BUSINESS REQUIREMENTS:
+        generation_rules = f"""You are an expert CI4 PHP frontend developer creating dynamic e-commerce page templates.
 
 YOUR TASK:
-- Generate THREE separate HTML partials (header, body, footer) + CSS for this page
+- Generate THREE separate PHP/HTML partials (header, body, footer) + CSS for the '{page_name}' page
 - Each partial is a FRAGMENT, NOT a full HTML document
-- Follow the page configuration and include all specified sections in body_html
-- Use the provided image URLs for appropriate sections (hero, features, etc.)
-- Create realistic, professional content aligned with the business description
+- The website is integrated with a CI4 CRM — data comes from the database via PHP variables
+- DO NOT hardcode product names, categories, or prices — always use PHP loops and variables
+
+{ci4_context_block}
+
+HEADER STRUCTURE (ALL PAGES):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+The header contains the BRAND + HOME/FAQ NAV ONLY.
+DO NOT put the category nav in the header.
+Category nav goes ONLY in the home page body (see below).
+
+HOME PAGE BODY — FIRST BLOCK MUST BE THE CATEGORY NAV:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+For the 'home' page, body_html MUST start with this EXACT CI4 category nav block:
+{CI4_CATEGORY_NAV_TEMPLATE}
+Then follows: hero banner → product grid → CTA banner.
+
+FAQ PAGE BODY:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+For the 'faq' page, body_html has NO category nav.
+Content: FAQ hero → accordion FAQ list → contact CTA.
 
 CRITICAL OUTPUT FORMAT:
-1. header_html: ONLY the <header>...</header> element (nav bar). No <html>, <head>, <body> tags.
-2. body_html: ONLY the page body sections (<section> blocks). No <html>, <head>, <body>, <header>, <footer> tags.
-3. footer_html: ONLY the <footer>...</footer> element + <script> for mobile menu. No <html>, <head>, <body> tags.
-4. css: Plain CSS text only (no <style> tags, no markdown). Will be saved as assets/css/style.css.
+1. header_html : ONLY <header>...</header>. Brand + Home/FAQ nav. Single tier. NO category nav.
+2. body_html   : ONLY page body blocks (no <html>,<head>,<body>,<header>,<footer> tags)
+                 HOME: starts with category nav → hero → products → CTA
+                 FAQ:  NO category nav → FAQ hero → FAQ list → contact CTA
+3. footer_html : ONLY <footer>...</footer> + <script> blocks (Home & FAQ links only)
+4. css         : Plain CSS text only (no <style> tags, no markdown fences)
 
-NAVIGATION LINKS: Use href="[page_name].php" format (NOT .html)
+NAVIGATION — MAIN NAV: Home and FAQ ONLY — no other pages.
+All URLs must use getDynamicBaseUrl() with $merchant_id in the route.
 
-RESPONSIVE DESIGN:
-- Mobile: < 768px with hamburger menu
-- Tablet: 768px - 1024px
-- Desktop: > 1024px
+OUTPUT: Production-ready CI4 PHP partials."""
 
-CSS CLASSES TO USE:
-- Layout: .container, .grid, .grid-cols-1, .grid-cols-md-3, .gap-lg, .section-padding
-- Components: .navbar, .nav-menu, .nav-link, .hero, .card, .btn, .btn-primary
-- Typography: .section-title, .text-center
+        full_prompt = (
+            f"{generation_rules}\n\n"
+            f"{'='*60}\nGENERATION INPUTS:\n{'='*60}\n\n"
+            f"BUSINESS DESCRIPTION:\n{business_description}\n\n"
+            f"Now create EXCEPTIONAL CI4 PHP page partials for this e-commerce shop!"
+        )
 
-OUTPUT: Separate partials as described above, production-ready."""
-        
-        full_prompt = f"{generation_rules}\n\n{'='*60}\nGENERATION INPUTS:\n{'='*60}\n\nBUSINESS DESCRIPTION:\n{business_description}\n\nNow create EXCEPTIONAL PHP page partials for this business!"
-        
-        # Print summary to terminal
         print("\n" + "="*80)
-        print(f"🎯 GENERATING PHP PARTIALS FOR PAGE: {page_name}")
-        print("="*80)
-        print(f"Business Context: {len(business_description)} chars")
+        print(f"🛒 GENERATING CI4 PHP PARTIALS — PAGE: {page_name.upper()}")
+        print(f"   Shop MID : {shop_mid}")
         print("="*80 + "\n")
-        
+
         result = self.predict(
             plan=plan,
             page_name=page_name,
@@ -66,8 +113,7 @@ OUTPUT: Separate partials as described above, production-ready."""
             image_urls=image_urls,
             business_description=full_prompt
         )
-        
-        # Return all 4 parts as a tuple
+
         return (
             result.header_html.strip(),
             result.body_html.strip(),
@@ -299,6 +345,8 @@ class WebsiteUpdater(dspy.Module):
             "updated_pages": updated_pages,
             "updated_global_css": updated_global_css,
             "changes_summary": changes_summary,
+
+            
             "analysis": analysis
         }
     def _extract_css(self, html: str):

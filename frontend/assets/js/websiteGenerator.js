@@ -424,6 +424,18 @@ export class WebsiteGeneratorManager {
 
             console.log('✅ Export success:', result);
 
+            // Hit the base.php API with the generated folder name
+            try {
+                const apiResponse = await fetch(`http://localhost:8080/base.php?theme=${encodeURIComponent(this.folderName)}`);
+                if (apiResponse.ok) {
+                    console.log('✅ Base API hit successfully:', apiResponse.status);
+                } else {
+                    console.error('⚠️ Base API hit failed with status:', apiResponse.status);
+                }
+            } catch (err) {
+                console.error('❌ Failed to hit base API:', err);
+            }
+
             // Build success message
             const lines = [
                 `✅ Website exported successfully!`,

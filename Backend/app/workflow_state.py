@@ -52,6 +52,10 @@ class WorkflowState(TypedDict):
     # Step 3: Multi-page HTML generation
     pages: Optional[Dict]  # Page name -> {html: str, css: str}
     
+    shop_mid: Optional[str]      # Merchant ID used in CI4 routes (e.g. "1")
+    ci4_config: Optional[Dict]   # CI4 route patterns and available PHP variables
+ 
+
     # Step 4: File storage
     folder_path: Optional[str]  # Path to saved website folder
     saved_files: Optional[Dict]  # Page name -> file path

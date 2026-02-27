@@ -33,7 +33,8 @@ def _clean_partial(html: str, part_name: str) -> str:
 def _generate_page(generator: MultiPageGenerator, plan: dict, page: dict,
                    image_urls_text: str, description: str,
                    template_styling, page_names: list,
-                   is_single_page: bool) -> dict:
+                   is_single_page: bool,
+                   ci4_config: dict = None) -> dict:
     """
     Synchronous helper that generates PHP partials for ONE page.
     Runs inside asyncio.to_thread() so multiple pages run in parallel.
@@ -79,7 +80,8 @@ def _generate_page(generator: MultiPageGenerator, plan: dict, page: dict,
         page_config=json.dumps(page),
         image_urls=image_urls_text,
         business_description=description,
-        template_styling=template_styling
+        template_styling=template_styling,
+        ci4_config=ci4_config
     )
 
     # Clean markdown fences from each part
@@ -134,9 +136,12 @@ async def html_generation_node(state: WorkflowState) -> WorkflowState:
         page_names  = [p["name"] for p in all_pages]
         is_single_page   = len(all_pages) == 1
         template_styling = state.get("template_styling")
+        ci4_config        = state.get("ci4_config") or {}
+        shop_mid          = state.get("shop_mid", ci4_config.get("shop_mid", "1"))
 
         logger.info(f"Website type : {'SINGLE-PAGE' if is_single_page else 'MULTI-PAGE'}")
         logger.info(f"Pages to generate IN PARALLEL: {page_names}")
+        logger.info(f"CI4 shop MID : {shop_mid}")
 
         # One generator instance — DSPy modules are stateless for forward() calls
         generator = MultiPageGenerator()
@@ -157,7 +162,8 @@ async def html_generation_node(state: WorkflowState) -> WorkflowState:
                 state["description"],
                 template_styling,
                 page_names,
-                is_single_page
+                is_single_page,
+                ci4_config         # <-- pass CI4 context to each page
             )
             for page in all_pages
         ]
