@@ -34,18 +34,19 @@ Required JSON structure:
         "php_variables": [
             "$categories",
             "$subcategorieslist",
-            "$products",
+            "$results",
             "$merchant_id",
             "$search",
             "$filters",
-            "$selected_category_id"
+            "$selected_category_id",
+            "$selected_subcategory_id"
         ],
         "helper_function": "getDynamicBaseUrl()",
         "route_patterns": {
             "all_products":    "fshop/index/{mid}",
             "by_category":     "fshop/index/{mid}/{catid}",
             "by_subcategory":  "fshop/index/{mid}/{catid}?sub={subcatid}",
-            "single_product":  "fshop/product/{mid}/{product_id}",
+            "single_product":  "fshopdetail/index/{mid}/{inventory_id}",
             "faq_page":        "fshop/faq/{mid}"
         }
     },

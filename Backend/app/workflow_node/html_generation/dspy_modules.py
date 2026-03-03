@@ -50,7 +50,7 @@ class MultiPageGenerator(dspy.Module):
             ci4_context_block = (
                 "CI4 CRM INTEGRATION CONTEXT:\n"
                 "  Merchant ID ($merchant_id): 1\n"
-                "  Available PHP variables: $categories, $subcategorieslist, $products, $merchant_id\n"
+                "  Available PHP variables: $categories, $subcategorieslist, $results, $merchant_id, $search, $filters, $selected_category_id, $selected_subcategory_id\n"
                 "  Helper function: getDynamicBaseUrl()\n"
             )
 
@@ -91,6 +91,7 @@ CRITICAL OUTPUT FORMAT:
 
 NAVIGATION — MAIN NAV: Home and FAQ ONLY — no other pages.
 All URLs must use getDynamicBaseUrl() with $merchant_id in the route.
+Category nav UX rules: non-sticky navbar, no horizontal overflow/scroll on category UL, desktop hover opens subcategories, and dropdown expansion must not create navbar scrolling.
 
 OUTPUT: Production-ready CI4 PHP partials."""
 

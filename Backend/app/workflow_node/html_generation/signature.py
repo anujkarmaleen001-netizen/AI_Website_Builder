@@ -12,9 +12,17 @@ CI4_CATEGORY_NAV_TEMPLATE = """
   <div class="container">
     <ul class="navbar-nav category-nav-list" id="categoryNavList">
 
+      <?php
+        $selectedCategoryId = !empty($selected_category_id) ? (int)$selected_category_id : 0;
+        $selectedSubcategoryId = !empty($selected_subcategory_id)
+          ? (int)$selected_subcategory_id
+          : (isset($_GET['sub']) ? (int)$_GET['sub'] : 0);
+        $isAllActive = ($selectedCategoryId <= 0 && $selectedSubcategoryId <= 0) ? 'active' : '';
+      ?>
+
       <?php if((empty($search)) && empty($filters)): ?>
       <li class="nav-item category-nav-item">
-        <a class="nav-link cat-link <?= empty($selected_category_id) ? 'active' : '' ?>"
+        <a class="nav-link cat-link <?= $isAllActive ?>"
            href="<?= getDynamicBaseUrl('fshop/index/'.$merchant_id) ?>">All</a>
       </li>
       <?php endif; ?>
@@ -22,8 +30,29 @@ CI4_CATEGORY_NAV_TEMPLATE = """
       <?php foreach ($categories as $category):
         $categoryname = $category['category_name'];
         $catid        = $category['category_id'];
-        $isActive     = (!empty($selected_category_id) && $selected_category_id == $catid) ? 'active' : '';
-        if($category['subcategory_count'] == 0):
+        $subcategories = !empty($subcategorieslist[$catid]) ? $subcategorieslist[$catid] : [];
+        $hasSubcategories = !empty($category['subcategory_count']) && !empty($subcategories);
+        $isCategorySelected = ($selectedCategoryId > 0 && $selectedCategoryId === (int)$catid);
+
+        $selectedSubBelongsToCategory = false;
+        if($hasSubcategories && $selectedSubcategoryId > 0):
+          foreach($subcategories as $subcategoryRef):
+            if((int)$subcategoryRef['sub_category_id'] === $selectedSubcategoryId):
+              $selectedSubBelongsToCategory = true;
+              break;
+            endif;
+          endforeach;
+        endif;
+
+        if($isCategorySelected && $selectedSubcategoryId > 0 && !$selectedSubBelongsToCategory):
+          $redirectUrl = getDynamicBaseUrl('fshop/index/'.$merchant_id.'/'.$catid);
+          echo '<script>window.location.href='.json_encode($redirectUrl).';</script>';
+          $selectedSubcategoryId = 0;
+        endif;
+
+        $isActive = $isCategorySelected ? 'active' : '';
+
+        if(!$hasSubcategories):
           $catlink = getDynamicBaseUrl('fshop/index/'.$merchant_id.'/'.$catid);
       ?>
         <li class="nav-item category-nav-item">
@@ -32,17 +61,19 @@ CI4_CATEGORY_NAV_TEMPLATE = """
       <?php else: $catlink = "#"; ?>
         <li class="nav-item dropdown category-nav-item">
           <a class="nav-link cat-link dropdown-toggle <?= $isActive ?>"
-             href="#" data-bs-toggle="dropdown"><?= $categoryname ?></a>
+             href="#"
+             data-subcategory-toggle="true"
+             aria-expanded="false"><?= $categoryname ?></a>
           <ul class="dropdown-menu">
-            <?php if(!empty($subcategorieslist[$catid])):
-              foreach($subcategorieslist[$catid] as $subcategory):
+            <?php foreach($subcategories as $subcategory):
                 $subcatid   = $subcategory['sub_category_id'];
                 $subcatlink = getDynamicBaseUrl('fshop/index/'.$merchant_id.'/'.$catid.'?sub='.$subcatid);
+                $subIsActive = ($isCategorySelected && (int)$subcatid === $selectedSubcategoryId) ? 'active' : '';
             ?>
             <li>
-              <a class="dropdown-item" href="<?= $subcatlink ?>"><?= $subcategory['name'] ?></a>
+              <a class="dropdown-item <?= $subIsActive ?>" href="<?= $subcatlink ?>"><?= $subcategory['name'] ?></a>
             </li>
-            <?php endforeach; endif; ?>
+            <?php endforeach; ?>
           </ul>
         </li>
       <?php endif; endforeach; ?>
@@ -50,6 +81,71 @@ CI4_CATEGORY_NAV_TEMPLATE = """
     </ul>
   </div>
 </nav>
+<script>
+/* Hover + click behavior for category submenus */
+(function() {
+  function isDesktop() {
+    return window.matchMedia('(min-width: 992px)').matches;
+  }
+
+  function closeAllCategoryDropdowns(exceptItem) {
+    document.querySelectorAll('#categoryNavList .category-nav-item.dropdown').forEach(function(item) {
+      if (exceptItem && item === exceptItem) { return; }
+      item.classList.remove('open');
+      var toggle = item.querySelector('[data-subcategory-toggle="true"]');
+      if (toggle) { toggle.setAttribute('aria-expanded', 'false'); }
+    });
+  }
+
+  function bindHoverBehavior() {
+    document.querySelectorAll('#categoryNavList .category-nav-item.dropdown').forEach(function(item) {
+      item.addEventListener('mouseenter', function() {
+        if (!isDesktop()) { return; }
+        closeAllCategoryDropdowns(item);
+        item.classList.add('open');
+        var toggle = item.querySelector('[data-subcategory-toggle="true"]');
+        if (toggle) { toggle.setAttribute('aria-expanded', 'true'); }
+      });
+
+      item.addEventListener('mouseleave', function() {
+        if (!isDesktop()) { return; }
+        item.classList.remove('open');
+        var toggle = item.querySelector('[data-subcategory-toggle="true"]');
+        if (toggle) { toggle.setAttribute('aria-expanded', 'false'); }
+      });
+    });
+  }
+
+  bindHoverBehavior();
+
+  document.addEventListener('click', function(event) {
+    var toggle = event.target.closest('#categoryNavList [data-subcategory-toggle="true"]');
+    if (toggle) {
+      event.preventDefault();
+      var parentItem = toggle.closest('.category-nav-item.dropdown');
+      if (!parentItem) { return; }
+
+      if (isDesktop()) {
+        return;
+      }
+
+      var shouldOpen = !parentItem.classList.contains('open');
+      closeAllCategoryDropdowns(parentItem);
+      if (shouldOpen) {
+        parentItem.classList.add('open');
+        toggle.setAttribute('aria-expanded', 'true');
+      } else {
+        toggle.setAttribute('aria-expanded', 'false');
+      }
+      return;
+    }
+
+    if (!event.target.closest('#categoryNavList .category-nav-item.dropdown')) {
+      closeAllCategoryDropdowns();
+    }
+  });
+})();
+</script>
 <!-- ===== END CI4 CATEGORY NAV ===== -->
 """
 
@@ -146,32 +242,56 @@ REQUIRED SECTIONS (in order):
   </div>
 </section>
 
-2. FEATURED PRODUCTS (dynamic CI4 PHP loop):
+2. FEATURED PRODUCTS (dynamic CI4 inventory loop — use this exact field logic):
 <section id="featured-products" class="section-padding products-section">
   <div class="container">
     <h2 class="section-title">Featured Products</h2>
-    <div class="product-grid">
-      <?php if(!empty($products)): ?>
-        <?php foreach($products as $product): ?>
-        <div class="product-card">
-          <div class="product-card-img-wrap">
-            <img src="<?= !empty($product['image']) ? $product['image'] : '' ?>"
-                 alt="<?= htmlspecialchars($product['product_name']) ?>" loading="lazy"
-                 onerror="this.style.display='none'">
-          </div>
-          <div class="product-card-body">
-            <h3 class="product-name"><?= htmlspecialchars($product['product_name']) ?></h3>
-            <?php if(!empty($product['price'])): ?>
-            <p class="product-price">&#8377;<?= number_format((float)$product['price'], 2) ?></p>
-            <?php endif; ?>
-            <a href="<?= getDynamicBaseUrl('fshop/product/'.$merchant_id.'/'.$product['product_id']) ?>"
-               class="btn btn-primary btn-sm product-cta">View Details</a>
+    <div class="row products-row">
+      <?php if(!empty($results)){ ?>
+        <?php foreach($results as $inventory){
+          $pdetailurl = $inventory["merchant_id"].'/'.$inventory["inventory_id"];
+          if($inventory['file_type'] == 2){
+            $object_key = str_replace(' ', '', $inventory["object_key"]);
+            $imageURL = !empty($inventory['object_key']) ? BUCKET360.$object_key : base_url('assets/img/Default-Image.jpg');
+          }else{
+            $imageURL = base_url('assets/img/Default-Image.jpg');
+          }
+          $pid = $inventory["inventory_id"];
+          $ptype = $inventory["price_type"];
+        ?>
+        <input type="hidden" value="<?php echo $inventory['stock_qty'] ?>" id="<?php echo 'stock_'.$inventory['inventory_id'] ?>" >
+        <input type="hidden" value="1" id="<?php echo 'invqty_'.$pid; ?>" min="1">
+        <div class="col-md-4 col-xl-3">
+          <div class="product-item">
+            <div class="product-img">
+              <a href="<?php echo getDynamicBaseUrl('fshopdetail/index/'.$pdetailurl); ?>">
+                <img src="<?php echo $imageURL; ?>" class="img-fluid" alt="product" />
+              </a>
+            </div>
+            <div class="product-detail">
+              <h4 class="product-title"><?php echo $inventory['name']; ?></h4>
+              <p class="price">$<?php
+                $special_price = $inventory['special_price'];
+                if($special_price != '' && $special_price != null){
+                  echo $special_price.'&nbsp; <s> '.$inventory['price']."</s>";
+                }else{
+                  echo $inventory['price'];
+                }
+              ?></p>
+              <div class="addCart-area">
+                <a href="javascript:void(0);" id="cart_<?php echo $pid; ?>" data-id=""
+                   data-has-required-modifiers="<?php echo isset($inventory['has_required_modifiers']) && $inventory['has_required_modifiers'] ? '1' : '0'; ?>"
+                   onclick="addToCart('<?php echo $pid; ?>','<?php echo $ptype; ?>','list','')">
+                  Add to Cart
+                </a>
+              </div>
+            </div>
           </div>
         </div>
-        <?php endforeach; ?>
-      <?php else: ?>
-        <p class="no-products-msg">No products available at the moment.</p>
-      <?php endif; ?>
+        <?php } ?>
+      <?php } else { ?>
+        <p class="no-products-msg">Product(s) not found...</p>
+      <?php } ?>
     </div>
   </div>
 </section>
@@ -232,8 +352,9 @@ GLOBAL RULES:
 - Use htmlspecialchars() for dynamic string output
 - Use number_format() for prices
 - Use $merchant_id in all route URLs
-- NO hardcoded product data — always use $products PHP loop for product sections
-- CSS classes to use: .container, .section-padding, .section-title, .btn, .btn-primary, .btn-sm, .product-grid, .product-card
+- NO hardcoded product data — always use $results inventory loop for product sections
+- Product block must use CI4 inventory fields: merchant_id, inventory_id, name, price, special_price, stock_qty, file_type, object_key, price_type, has_required_modifiers
+- CSS classes to use: .container, .section-padding, .section-title, .row, .products-row, .product-item, .product-img, .product-detail, .product-title, .price, .addCart-area, .no-products-msg
         """
     )
     footer_html: str = dspy.OutputField(
@@ -340,14 +461,20 @@ MUST INCLUDE THESE SECTIONS IN ORDER:
    .section-title (styled heading)
 
 5. TIER 1 Top nav (.top-nav-bar, .top-nav-inner, .site-logo, .main-nav, .main-nav-list, .nav-link)
-   - Fixed or sticky position
+   - NON-sticky / static position (do not use fixed or sticky)
    - Logo left, nav right
    - .nav-link.active uses var(--primary)
 
 6. TIER 2 Category nav (.category-nav-bar, .category-nav-list, .cat-link)
-   - Horizontal scrollable on mobile
-   - .cat-link.active uses var(--primary) with underline/border-bottom
+   - Must be aesthetic with many categories: use pill-style category chips with flex-wrap and spacing
+   - NO horizontal scrollbar on the category <ul>; do not use overflow-x auto on .category-nav-list
+   - Keep dropdown menus positioned absolutely so opening subcategories does not create navbar scroll/overflow
+   - Keep .cat-link default state neutral; DO NOT apply primary bg/text to all .cat-link or .dropdown-toggle by default
+   - .cat-link.active uses var(--primary) styling, and ONLY one category should appear active at a time
+   - .category-nav-item.open should only control dropdown visibility; it must not force active/highlight styles on non-active links
    - .dropdown-menu styles (Bootstrap-compatible)
+   - Must include fallback rule: .category-nav-item.open > .dropdown-menu { display: block; }
+   - Must include hover behavior rule on desktop: .category-nav-item.dropdown:hover > .dropdown-menu { display: block; }
 
 7. Hamburger button (.hamburger-btn — hidden desktop, visible mobile)
    Mobile menu: #mainNavMenu.open shows as column
@@ -356,10 +483,10 @@ MUST INCLUDE THESE SECTIONS IN ORDER:
    - Flexbox two-column layout (text left, image right)
    - Stacks on mobile
 
-9. Products section (.products-section, .product-grid, .product-card, .product-card-img-wrap, .product-card-body, .product-name, .product-price, .product-cta, .no-products-msg)
-   - CSS Grid: repeat(auto-fill, minmax(220px, 1fr))
-   - Card hover: translateY(-4px) + box-shadow
-   - .product-card-img-wrap: fixed aspect-ratio (4/3), overflow hidden
+9. Products section (.products-section, .products-row, .product-item, .product-img, .product-detail, .product-title, .price, .addCart-area, .no-products-msg)
+   - Keep Bootstrap-friendly column layout for .col-md-4.col-xl-3 cards
+   - .product-item card hover: translateY(-4px) + box-shadow
+   - .product-img img uses fixed visual height + object-fit: cover for consistent card thumbnails
 
 10. CTA section (.cta-section, .cta-inner — centered, background var(--primary-light))
 
@@ -375,7 +502,7 @@ MUST INCLUDE THESE SECTIONS IN ORDER:
     - .btn-primary uses var(--primary), hover uses var(--primary-dark)
 
 15. Media queries (max-width: 768px):
-    - Category nav: horizontal scroll
+    - Category nav: wrap into multiple lines (no horizontal scrolling)
     - Product grid: 2 columns → 1 column at 480px
     - Hero: stack vertically
     - Footer: 1 column

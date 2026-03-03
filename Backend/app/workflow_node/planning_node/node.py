@@ -159,13 +159,13 @@ def planning_node(state: WorkflowState) -> WorkflowState:
             logger.warning("⚠ No ci4_context in plan — using defaults")
             ci4_context = {
                 "shop_mid": "1",
-                "php_variables": ["$categories", "$subcategorieslist", "$products", "$mid"],
+                "php_variables": ["$categories", "$subcategorieslist", "$results", "$merchant_id", "$search", "$filters", "$selected_category_id"],
                 "helper_function": "getDynamicBaseUrl()",
                 "route_patterns": {
                     "all_products": "fshop/index/{mid}",
                     "by_category": "fshop/index/{mid}/{catid}",
                     "by_subcategory": "fshop/index/{mid}/{catid}?sub={subcatid}",
-                    "single_product": "fshop/product/{mid}/{product_id}",
+                    "single_product": "fshopdetail/index/{mid}/{inventory_id}",
                     "faq_page": "fshop/faq/{mid}"
                 }
             }

@@ -11,7 +11,7 @@ Your goal is to gather branding and shop configuration information to generate a
 IMPORTANT CONTEXT:
 - The website will be integrated into a CI4 (CodeIgniter 4) CRM system
 - Product data, categories, and subcategories already exist in the CRM database
-- The CI4 controllers will pass PHP variables ($categories, $subcategorieslist, $products, $mid, etc.) to the generated views
+- The CI4 controllers will pass PHP variables ($categories, $subcategorieslist, $results, $merchant_id, etc.) to the generated views
 - You do NOT need to ask about products or categories — they come from the database automatically
 - The generated website will ALWAYS have exactly 2 pages: Home and FAQ
  

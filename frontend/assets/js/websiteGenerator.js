@@ -27,6 +27,7 @@ export class WebsiteGeneratorManager {
         this.currentThreadId = null;
         this.conversationMessages = [];
         this.isAwaitingInput = false;
+         this.crmMode = this.resolveCRMMode();
 
         this.init();
     }
@@ -34,6 +35,25 @@ export class WebsiteGeneratorManager {
     init() {
         this.setupEventListeners();
         this.setupDataManager();
+        this.applyDataSelectorVisibility();
+    }
+
+    resolveCRMMode() {
+        const modeFromDataset = document.body?.dataset?.crmMode;
+        if (modeFromDataset === 'false' || modeFromDataset === '0') {
+            return false;
+        }
+        if (modeFromDataset === 'true' || modeFromDataset === '1') {
+            return true;
+        }
+        // Default to CRM mode unless explicitly disabled.
+        return true;
+    }
+
+    applyDataSelectorVisibility() {
+        const dataSelectorSection = document.getElementById('dataSelectorSection');
+        if (!dataSelectorSection) return;
+        dataSelectorSection.style.display = this.crmMode ? 'none' : 'block';
     }
 
     setupEventListeners() {
@@ -105,6 +125,10 @@ export class WebsiteGeneratorManager {
     }
 
     setupDataManager() {
+        if (this.crmMode) {
+            return;
+        }
+
         // Setup data selector event listeners
         const applyDataBtn = document.getElementById('applyDataBtn');
         const jsonDataDropdown = document.getElementById('jsonDataDropdown');
@@ -123,6 +147,11 @@ export class WebsiteGeneratorManager {
     }
 
     async applySelectedData() {
+        if (this.crmMode) {
+            console.info('CRM mode active: mock data selector is disabled.');
+            return;
+        }
+
         const dropdown = document.getElementById('jsonDataDropdown');
         const selectedFile = dropdown?.value;
 
@@ -515,6 +544,11 @@ export class WebsiteGeneratorManager {
     }
 
     showDataSelector() {
+        if (this.crmMode) {
+            this.applyDataSelectorVisibility();
+            return;
+        }
+
         const dataSelectorSection = document.getElementById('dataSelectorSection');
         if (dataSelectorSection) {
             dataSelectorSection.style.display = 'block';
