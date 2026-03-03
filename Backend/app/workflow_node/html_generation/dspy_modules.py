@@ -91,7 +91,7 @@ CRITICAL OUTPUT FORMAT:
 
 NAVIGATION — MAIN NAV: Home and FAQ ONLY — no other pages.
 All URLs must use getDynamicBaseUrl() with $merchant_id in the route.
-Category nav UX rules: non-sticky navbar, no horizontal overflow/scroll on category UL, desktop hover opens subcategories, and dropdown expansion must not create navbar scrolling.
+Category nav UX rules: non-sticky navbar, premium horizontal category rail with left/right arrow controls, increased chip spacing for readability, desktop hover opens subcategories, and dropdown expansion must not cause vertical page/navbar scrolling.
 
 OUTPUT: Production-ready CI4 PHP partials."""
 

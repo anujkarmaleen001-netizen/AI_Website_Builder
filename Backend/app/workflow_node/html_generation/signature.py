@@ -10,7 +10,10 @@ CI4_CATEGORY_NAV_TEMPLATE = """
 <!-- ===== CI4 DYNAMIC CATEGORY NAV — COPY THIS EXACTLY ===== -->
 <nav class="category-nav-bar">
   <div class="container">
-    <ul class="navbar-nav category-nav-list" id="categoryNavList">
+    <div class="category-nav-shell">
+      <button type="button" class="category-nav-arrow category-nav-arrow-prev" id="categoryNavPrev" aria-label="Scroll categories left">‹</button>
+      <div class="category-nav-scroll" id="categoryNavScroll">
+        <ul class="navbar-nav category-nav-list" id="categoryNavList">
 
       <?php
         $selectedCategoryId = !empty($selected_category_id) ? (int)$selected_category_id : 0;
@@ -77,8 +80,10 @@ CI4_CATEGORY_NAV_TEMPLATE = """
           </ul>
         </li>
       <?php endif; endforeach; ?>
-
-    </ul>
+        </ul>
+      </div>
+      <button type="button" class="category-nav-arrow category-nav-arrow-next" id="categoryNavNext" aria-label="Scroll categories right">›</button>
+    </div>
   </div>
 </nav>
 <script>
@@ -95,6 +100,40 @@ CI4_CATEGORY_NAV_TEMPLATE = """
       var toggle = item.querySelector('[data-subcategory-toggle="true"]');
       if (toggle) { toggle.setAttribute('aria-expanded', 'false'); }
     });
+  }
+
+  var navScroll = document.getElementById('categoryNavScroll');
+  var prevBtn = document.getElementById('categoryNavPrev');
+  var nextBtn = document.getElementById('categoryNavNext');
+
+  function updateArrowState() {
+    if (!navScroll || !prevBtn || !nextBtn) { return; }
+    var maxScroll = Math.max(0, navScroll.scrollWidth - navScroll.clientWidth);
+    var left = Math.max(0, navScroll.scrollLeft);
+    prevBtn.disabled = left <= 2;
+    nextBtn.disabled = left >= (maxScroll - 2);
+  }
+
+  function scrollCategories(direction) {
+    if (!navScroll) { return; }
+    var distance = Math.max(220, Math.floor(navScroll.clientWidth * 0.45));
+    navScroll.scrollBy({
+      left: direction * distance,
+      behavior: 'smooth'
+    });
+    window.setTimeout(updateArrowState, 220);
+  }
+
+  if (prevBtn) {
+    prevBtn.addEventListener('click', function() { scrollCategories(-1); });
+  }
+  if (nextBtn) {
+    nextBtn.addEventListener('click', function() { scrollCategories(1); });
+  }
+  if (navScroll) {
+    navScroll.addEventListener('scroll', updateArrowState, { passive: true });
+    window.addEventListener('resize', updateArrowState);
+    window.setTimeout(updateArrowState, 0);
   }
 
   function bindHoverBehavior() {
@@ -466,9 +505,11 @@ MUST INCLUDE THESE SECTIONS IN ORDER:
    - .nav-link.active uses var(--primary)
 
 6. TIER 2 Category nav (.category-nav-bar, .category-nav-list, .cat-link)
-   - Must be aesthetic with many categories: use pill-style category chips with flex-wrap and spacing
-   - NO horizontal scrollbar on the category <ul>; do not use overflow-x auto on .category-nav-list
-   - Keep dropdown menus positioned absolutely so opening subcategories does not create navbar scroll/overflow
+   - Must be premium and easy to read for SME/MSME users
+   - Use horizontal scrolling category rail with generous spacing between chips
+   - Add left/right arrow controls (.category-nav-arrow-prev / .category-nav-arrow-next) to scroll categories
+   - Keep .category-nav-scroll as overflow-x auto with smooth scrolling and subtle/hidden scrollbar styling
+   - Keep dropdown menus positioned absolutely so opening subcategories does not create page/navbar vertical scrolling
    - Keep .cat-link default state neutral; DO NOT apply primary bg/text to all .cat-link or .dropdown-toggle by default
    - .cat-link.active uses var(--primary) styling, and ONLY one category should appear active at a time
    - .category-nav-item.open should only control dropdown visibility; it must not force active/highlight styles on non-active links
@@ -502,7 +543,8 @@ MUST INCLUDE THESE SECTIONS IN ORDER:
     - .btn-primary uses var(--primary), hover uses var(--primary-dark)
 
 15. Media queries (max-width: 768px):
-    - Category nav: wrap into multiple lines (no horizontal scrolling)
+    - Category nav remains horizontally scrollable with touch swipe
+    - Arrow controls may be reduced in size or hidden on very small screens
     - Product grid: 2 columns → 1 column at 480px
     - Hero: stack vertically
     - Footer: 1 column
