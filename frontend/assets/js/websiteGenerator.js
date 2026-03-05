@@ -598,7 +598,7 @@ export class WebsiteGeneratorManager {
         let combinedCSS = '';
 
         // Define page order
-        const pageOrder = ['home', 'about', 'services', 'contact'];
+        const pageOrder = ['home', 'product_detail', 'faq', 'about', 'services', 'contact'];
         const orderedPages = pageOrder.filter(name => pages[name]);
         const remainingPages = Object.keys(pages).filter(name => !pageOrder.includes(name));
         const allPageNames = [...orderedPages, ...remainingPages];
@@ -665,15 +665,29 @@ export class WebsiteGeneratorManager {
         }
     }
 
+    sanitizePhpForEditorPreview(html) {
+        if (!html) return '';
+
+        // GrapesJS does not execute PHP templates; strip PHP blocks for visual preview.
+        const withoutPhp = html.replace(/<\?(?:php|=)?[\s\S]*?\?>/gi, '');
+
+        // Remove excessive blank lines introduced by stripping template logic.
+        return withoutPhp
+            .replace(/\n\s*\n\s*\n/g, '\n\n')
+            .trim();
+    }
+
     extractBodyContent(html) {
+        const previewHtml = this.sanitizePhpForEditorPreview(html);
+
         // Extract content between <body> tags
-        const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+        const bodyMatch = previewHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
         if (bodyMatch) {
             return bodyMatch[1];
         }
 
         // If no body tag, return as is (might be HTML fragment)
-        return html;
+        return previewHtml;
     }
 
     formatPageName(pageName) {
