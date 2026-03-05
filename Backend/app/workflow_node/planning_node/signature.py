@@ -10,8 +10,8 @@ class WebsitePlannerSignature(dspy.Signature):
         desc="""JSON-formatted website plan. MUST follow this exact structure:
 
 CRITICAL RULES:
-- ALWAYS generate EXACTLY 2 pages: "home" and "faq" — no more, no less
-- navigation MUST always be: ["home", "faq"]
+- ALWAYS generate EXACTLY 3 pages in this order: "home", "product_detail", "faq"
+- navigation MUST always be: ["home", "faq"] (product_detail is route-driven, not in top nav)
 - DO NOT add "about", "contact", "shop" or any other pages
 - The ci4_context block MUST always be included with the available PHP variables
 
@@ -27,6 +27,11 @@ Required JSON structure:
             "name": "faq",
             "purpose": "Frequently asked questions and customer support info",
             "sections": ["faq_hero", "faq_list", "contact_cta"]
+        },
+        {
+            "name": "product_detail",
+            "purpose": "Product details page with image gallery, pricing, stock, quantity, add-to-cart, and tabbed information",
+            "sections": ["product_breadcrumb", "product_main", "product_tabs", "related_or_supporting_info"]
         }
     ],
     "ci4_context": {
@@ -39,7 +44,11 @@ Required JSON structure:
             "$search",
             "$filters",
             "$selected_category_id",
-            "$selected_subcategory_id"
+            "$selected_subcategory_id",
+            "$product",
+            "$invimgs",
+            "$product_reviews",
+            "$product_attributes"
         ],
         "helper_function": "getDynamicBaseUrl()",
         "route_patterns": {
@@ -134,7 +143,7 @@ CRITICAL:
 - ALWAYS use valid hex color codes (e.g., "#3B82F6"), never color names like "blue" or "red"
 - ALWAYS use real Google Fonts (Inter, Poppins, Roboto, Playfair Display, etc.)
 - Return ONLY valid JSON, no markdown code fences, no extra text
-- pages array MUST have EXACTLY 2 items: "home" then "faq"
+- pages array MUST have EXACTLY 3 items in this order: "home", "product_detail", "faq"
 - navigation MUST be exactly: ["home", "faq"]
         """
     )

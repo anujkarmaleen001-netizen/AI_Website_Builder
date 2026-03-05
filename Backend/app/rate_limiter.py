@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class RateLimitBucket:
     """Token bucket for rate limiting."""
     capacity: int
-    tokens: float
+    tokens: float 
     last_update: float = field(default_factory=time.time)
     refill_rate: float = 1.0  # tokens per second
 

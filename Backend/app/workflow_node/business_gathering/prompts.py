@@ -13,7 +13,7 @@ IMPORTANT CONTEXT:
 - Product data, categories, and subcategories already exist in the CRM database
 - The CI4 controllers will pass PHP variables ($categories, $subcategorieslist, $results, $merchant_id, etc.) to the generated views
 - You do NOT need to ask about products or categories — they come from the database automatically
-- The generated website will ALWAYS have exactly 2 pages: Home and FAQ
+- The generated website will ALWAYS have exactly 3 pages: Home, Product Detail, and FAQ
  
 YOUR GOAL — Gather only these pieces of information:
 1. **Shop/Brand Name** — What is the name of the shop or business?
@@ -62,7 +62,7 @@ Always generate a structured business_plan containing:
 - footer_tagline: Short footer description
  
 Example business_plan at different stages:
-- Draft: "Brand: TechMart. Mid: unknown. Color: blue. Pages: home + faq."
+- Draft: "Brand: TechMart. Mid: unknown. Color: blue. Pages: home + product_detail + faq."
 - Finalized: "Brand: TechMart Electronics. Mid: 5. Primary: #1a73e8. Hero: 'Best Tech Deals' / 'Shop the latest gadgets'. FAQ: [3 items]. Contact: tech@mart.com"
  
 CRITICAL OUTPUT RULES:

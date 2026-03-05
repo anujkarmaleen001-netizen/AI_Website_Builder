@@ -111,10 +111,47 @@ def planning_node(state: WorkflowState) -> WorkflowState:
                     logger.warning("All JSON parsing strategies failed, using fallback plan")
                     plan = {
                         "pages": [
-                            {"name": "home", "purpose": "Landing page", "sections": ["hero", "features", "cta"]},
-                            {"name": "about", "purpose": "About page", "sections": ["story", "team"]},
-                            {"name": "contact", "purpose": "Contact page", "sections": ["form", "info"]}
+                            {
+                                "name": "home",
+                                "purpose": "Main shop landing page with hero banner, dynamic category navigation, and product grid",
+                                "sections": ["hero_banner", "featured_products", "cta_banner"]
+                            },
+                            {
+                                "name": "product_detail",
+                                "purpose": "Product details page with image gallery, pricing, stock, quantity, add-to-cart, and tabbed information",
+                                "sections": ["product_breadcrumb", "product_main", "product_tabs", "related_or_supporting_info"]
+                            },
+                            {
+                                "name": "faq",
+                                "purpose": "Frequently asked questions and customer support info",
+                                "sections": ["faq_hero", "faq_list", "contact_cta"]
+                            }
                         ],
+                        "ci4_context": {
+                            "shop_mid": "1",
+                            "php_variables": [
+                                "$categories",
+                                "$subcategorieslist",
+                                "$results",
+                                "$merchant_id",
+                                "$search",
+                                "$filters",
+                                "$selected_category_id",
+                                "$selected_subcategory_id",
+                                "$product",
+                                "$invimgs",
+                                "$product_reviews",
+                                "$product_attributes"
+                            ],
+                            "helper_function": "getDynamicBaseUrl()",
+                            "route_patterns": {
+                                "all_products": "fshop/index/{mid}",
+                                "by_category": "fshop/index/{mid}/{catid}",
+                                "by_subcategory": "fshop/index/{mid}/{catid}?sub={subcatid}",
+                                "single_product": "fshopdetail/index/{mid}/{inventory_id}",
+                                "faq_page": "fshop/faq/{mid}"
+                            }
+                        },
                         "styling": {
                             "theme": "modern",
                             "primary_color": "#3B82F6",
@@ -123,7 +160,7 @@ def planning_node(state: WorkflowState) -> WorkflowState:
                             "design_style": "clean and professional"
                         },
                         "image_sections": ["hero", "features", "testimonials"],
-                        "navigation": ["home", "about", "contact"]
+                        "navigation": ["home", "faq"]
                     }
         
         # Validate plan structure
@@ -159,7 +196,7 @@ def planning_node(state: WorkflowState) -> WorkflowState:
             logger.warning("⚠ No ci4_context in plan — using defaults")
             ci4_context = {
                 "shop_mid": "1",
-                "php_variables": ["$categories", "$subcategorieslist", "$results", "$merchant_id", "$search", "$filters", "$selected_category_id"],
+                "php_variables": ["$categories", "$subcategorieslist", "$results", "$merchant_id", "$search", "$filters", "$selected_category_id", "$selected_subcategory_id", "$product", "$invimgs", "$product_reviews", "$product_attributes"],
                 "helper_function": "getDynamicBaseUrl()",
                 "route_patterns": {
                     "all_products": "fshop/index/{mid}",
@@ -193,7 +230,7 @@ def planning_node(state: WorkflowState) -> WorkflowState:
             "current_step": "plan_approval",      # Next step is approval
             "status": "awaiting_approval",         # Workflow pauses for user approval
             "progress": 20,
-            "progress_message": f"✓ Plan generated: {len(plan.get('pages', []))} pages (home + faq), awaiting your approval"
+            "progress_message": f"✓ Plan generated: {len(plan.get('pages', []))} pages (home + product_detail + faq), awaiting your approval"
         }
         
     except Exception as e:

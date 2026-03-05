@@ -512,6 +512,7 @@ class WebsiteFileManager:
     <meta name="robots" content="index,follow">
     <meta name="generator" content="GrapesJS Studio">
     <link rel="stylesheet" href="<?=ASSETSURL. '/' . $themefolder;?>/css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/swiper@11/swiper-bundle.min.css" />
   </head>
   <body>
 
@@ -521,6 +522,8 @@ class WebsiteFileManager:
 
 <?php echo view('fshop/'.$themefolder.'/template/footer'); ?>
 
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://unpkg.com/swiper@11/swiper-bundle.min.js"></script>
 </body>
 </html>
 """

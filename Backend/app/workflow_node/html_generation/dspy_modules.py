@@ -50,7 +50,7 @@ class MultiPageGenerator(dspy.Module):
             ci4_context_block = (
                 "CI4 CRM INTEGRATION CONTEXT:\n"
                 "  Merchant ID ($merchant_id): 1\n"
-                "  Available PHP variables: $categories, $subcategorieslist, $results, $merchant_id, $search, $filters, $selected_category_id, $selected_subcategory_id\n"
+                "  Available PHP variables: $categories, $subcategorieslist, $results, $merchant_id, $search, $filters, $selected_category_id, $selected_subcategory_id, $product, $product_images, $product_reviews, $product_attributes\n"
                 "  Helper function: getDynamicBaseUrl()\n"
             )
 
@@ -76,6 +76,18 @@ For the 'home' page, body_html MUST start with this EXACT CI4 category nav block
 {CI4_CATEGORY_NAV_TEMPLATE}
 Then follows: hero banner → product grid → CTA banner.
 
+PRODUCT DETAIL PAGE BODY:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+For the 'product_detail' page, generate dynamic structure with:
+- breadcrumb + right-side breadcrumb/meta context
+- product gallery + thumbnails using Swiper markup and $invimgs image loop
+- title, pricing, stock, quantity controls, CTA buttons
+- tabbed blocks for description/reviews/other details
+Include a "Back to Products" link that preserves selected category/subcategory context when available.
+Use CI4 variables ($product, $invimgs, $product_reviews, $product_attributes) and BUCKETBASEURL/ASSETSURL image paths.
+Initialize Swiper robustly: if Swiper assets are missing, auto-load CDN CSS/JS, then initialize ONLY .big-image-slider.
+Thumbnail area is non-swiper and should click-to-select the corresponding big image slide.
+
 FAQ PAGE BODY:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 For the 'faq' page, body_html has NO category nav.
@@ -85,6 +97,7 @@ CRITICAL OUTPUT FORMAT:
 1. header_html : ONLY <header>...</header>. Brand + Home/FAQ nav. Single tier. NO category nav.
 2. body_html   : ONLY page body blocks (no <html>,<head>,<body>,<header>,<footer> tags)
                  HOME: starts with category nav → hero → products → CTA
+                 PRODUCT_DETAIL: breadcrumb → gallery/info → tabs
                  FAQ:  NO category nav → FAQ hero → FAQ list → contact CTA
 3. footer_html : ONLY <footer>...</footer> + <script> blocks (Home & FAQ links only)
 4. css         : Plain CSS text only (no <style> tags, no markdown fences)
@@ -92,6 +105,8 @@ CRITICAL OUTPUT FORMAT:
 NAVIGATION — MAIN NAV: Home and FAQ ONLY — no other pages.
 All URLs must use getDynamicBaseUrl() with $merchant_id in the route.
 Category nav UX rules: non-sticky navbar, premium horizontal category rail with left/right arrow controls, increased chip spacing for readability, desktop hover opens subcategories, and dropdown expansion must not cause vertical page/navbar scrolling.
+Subcategory dropdown rule: no internal scrolling; show all submenu items at once (natural height or multi-column layout).
+Product card UX rules: keep robust box-style cards using project-specific classes only; avoid Bootstrap column dependencies that can collapse card widths in host PHP themes.
 
 OUTPUT: Production-ready CI4 PHP partials."""
 
